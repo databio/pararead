@@ -11,3 +11,7 @@
 # Output
 *.txt
 
+# Build
+.eggs/
+pararead.egg-info/
+
