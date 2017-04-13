@@ -12,6 +12,7 @@ from pararead.utils import \
     chromosomes_from_bam_header, partition_chromosomes_by_null_result
 from conftest import NAME_ALIGNED_FILE, NAME_UNALIGNED_FILE
 
+
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
@@ -28,7 +29,8 @@ class ChromosomesFromBamHeaderTests:
     @pytest.mark.parametrize(
             argnames="chromosomes",
             argvalues=[{"K1_unmethylated"}, ("K3_methylated", )])
-    def test_specificity(self, chromosomes, aligned_reads_file):
+    def test_filters_chromosomes(self, chromosomes, aligned_reads_file):
+        """ Chromosome name-from-BAM-header fetch can filter. """
         observed = chromosomes_from_bam_header(
                 readsfile=aligned_reads_file, chroms=chromosomes)
         assert list(chromosomes) == list(observed)
@@ -37,20 +39,28 @@ class ChromosomesFromBamHeaderTests:
     @pytest.mark.parametrize(
             argnames=["require_aligned", "is_aligned"],
             argvalues=itertools.product([False, True], [False, True]))
-    def test_alignment_requirement(self, require_aligned,
-                                   is_aligned, path_test_data):
+    def test_allows_alignment_requirement_flexibility(
+            self, require_aligned, is_aligned, path_test_data):
+        """ The chromosome fetcher affords option to require aligned input. """
 
+        # Create the reads file.
         name_reads_file = self.FILE_BY_ALIGNMENT[is_aligned]
         path_reads_file = os.path.join(path_test_data, name_reads_file)
         readsfile = pysam.AlignmentFile(
             path_reads_file, mode='rb', check_sq=False)
 
+        # Parameterize the function call
         func = partial(chromosomes_from_bam_header,
                        readsfile=readsfile, require_aligned=require_aligned)
+
+        # Determine expected behavior.
         if not is_aligned and require_aligned:
+            # Only 1 of the 4 cases is exceptional.
             with pytest.raises(MissingHeaderException):
                 func()
         else:
+            # Unaligned input returns null chromosome names collection;
+            # aligned input retains all no chromosomes with no filtration.
             expected = self.CHROMOSOME_NAMES if is_aligned else None
             assert expected == func()
 
