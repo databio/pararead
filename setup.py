@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-""" Install and setup the epilog package. """
+""" Install and setup the pararead package. """
 
 from setuptools import setup
 import sys
