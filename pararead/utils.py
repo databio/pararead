@@ -5,7 +5,8 @@ __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-__all__ = ["chromosomes_from_bam_header", "make_outfile_name"]
+__all__ = ["chromosomes_from_bam_header",
+           "filter_chromosomes", "make_outfile_name"]
 
 
 
@@ -33,6 +34,30 @@ def chromosomes_from_bam_header(chroms, readsfile):
     chrlist = [item['SN'] for item in readsfile.header['SQ']
                if not chroms or item['SN'] in chroms]
     return chrlist
+
+
+
+def filter_chromosomes(result_by_chromosome):
+    """
+    Bin chromosome name by whether processing result was null.
+
+    Parameters
+    ----------
+    result_by_chromosome : Sequence of (str, object)
+        Mapping from chromosome name to processing result
+
+    Returns
+    -------
+    (list of str, list of str)
+        Sequence of names of chromosomes for which result was null,
+        and an analogous sequence for those with a null result.
+
+    """
+    bad_chroms, good_chroms = [], []
+    for c, r in result_by_chromosome:
+        chroms = bad_chroms if r is None else good_chroms
+        chroms.append(c)
+    return bad_chroms, good_chroms
 
 
 

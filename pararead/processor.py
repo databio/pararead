@@ -252,7 +252,7 @@ class ParaReadProcessor(object):
             results = p.map_async(self, chroms).get(9999999)
 
         result_by_chromosome = zip(chroms, results)
-        bad_chroms, good_chroms = self.filter_chroms(result_by_chromosome)
+        bad_chroms, good_chroms = filter_chromosomes(result_by_chromosome)
 
         _LOGGER.info("Discarding {} chromosomes: {}".
                      format(len(bad_chroms), bad_chroms))
@@ -260,30 +260,6 @@ class ParaReadProcessor(object):
                      format(len(good_chroms), good_chroms))
 
         return good_chroms
-
-
-    @staticmethod
-    def filter_chroms(result_by_chromosome):
-        """
-        Bin chromosome name by whether processing result was null.
-
-        Parameters
-        ----------
-        result_by_chromosome : Sequence of (str, object)
-            Mapping from chromosome name to processing result
-
-        Returns
-        -------
-        (list of str, list of str)
-            Sequence of names of chromosomes for which result was null,
-            and an analogous sequence for those with a null result.
-
-        """
-        bad_chroms, good_chroms = [], []
-        for c, r in result_by_chromosome:
-            chroms = bad_chroms if r is None else good_chroms
-            chroms.append(c)
-        return bad_chroms, good_chroms
 
 
     def combine(self, good_chromosomes):
