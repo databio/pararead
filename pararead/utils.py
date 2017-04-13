@@ -1,43 +1,50 @@
 """ Parallel reads processor utilities. """
 
+from .exceptions import MissingHeaderException
 
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-__all__ = ["chromosomes_from_bam_header",
-           "filter_chromosomes", "make_outfile_name"]
+__all__ = ["chromosomes_from_bam_header", "make_outfile_name",
+           "partition_chromosomes_by_null_result", "unbuffered_write"]
 
 
 
-def chromosomes_from_bam_header(chroms, readsfile):
+def chromosomes_from_bam_header(readsfile, chroms=None, require_aligned=False):
     """
     Get a list of chromosomes (and lengths) in this readsfile from header.
 
     Parameters
     ----------
-    chroms : collections.Iterable of str
-        Chromosomes of interest. If empty/null/False,
-        assume that all chromosomes with read(s) are of interest.
     readsfile : pysam.libcalignmentfile.AlignmentFile
         File with aligned sequencing reads datasets
+    chroms : collections.Iterable of str, optional
+        Chromosomes of interest. If empty/null/False,
+        assume that all chromosomes with read(s) are of interest.
+    require_aligned : bool, default False
+        Whether to throw an exception if given unaligned input
 
     Returns
     -------
-    list of str
-        Mapping from reference sequence name to
-        reference sequence length for each reference
-        sequence that intersects with those of interest
+    None or list of str
+        Names of chromosomes present in the input file that are of interest 
+        as specified by the 
 
     """
-    chroms = set(chroms or [])
-    chrlist = [item['SN'] for item in readsfile.header['SQ']
-               if not chroms or item['SN'] in chroms]
-    return chrlist
+    chroms_in_header = [headline['SN'] for headline in readsfile.header['SQ']]
+    if not chroms_in_header:
+        if require_aligned:
+            raise MissingHeaderException(readsfile.filename)
+        else:
+            return None
+    if not chroms:
+        return chroms_in_header
+    return [c for c in chroms_in_header if c in set(chroms)]
 
 
 
-def filter_chromosomes(result_by_chromosome):
+def partition_chromosomes_by_null_result(result_by_chromosome):
     """
     Bin chromosome name by whether processing result was null.
 
@@ -53,6 +60,10 @@ def filter_chromosomes(result_by_chromosome):
         and an analogous sequence for those with a null result.
 
     """
+    # Ideally, the filtration strategy would be an argument.
+    # Due to cPickle's disdain for anonymous functions and general
+    # inability to serialize a callable, though, the filtration
+    # strategy employed is fixed to be whether the result is null.
     bad_chroms, good_chroms = [], []
     for c, r in result_by_chromosome:
         chroms = bad_chroms if r is None else good_chroms
@@ -83,3 +94,10 @@ def make_outfile_name(readsfile_basename, processing_action):
 
     """
     return "{}_{}.txt".format(readsfile_basename, processing_action)
+
+
+
+def unbuffered_write(txt):
+    """ Writes unbuffered output by flushing after each stdout.write call """
+    sys.stdout.write(txt)
+    sys.stdout.flush()

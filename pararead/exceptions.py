@@ -4,8 +4,6 @@ __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-__all__ = ["FileTypeException", "MissingHeaderException"]
-
 
 class FileTypeException(Exception):
     """ Extension not matching any of those of supported file types. """
@@ -17,10 +15,11 @@ class FileTypeException(Exception):
         Parameters
         ----------
         got : str
+            File type, name, or path of offending file.
         known : str | collections.Iterable of str
             Supported filetype(s).
         """
-        reason = "{} is not among supported filetype(s): {}".format(got, known)
+        reason = "'{}' is not among supported filetypes: {}".format(got, known)
         super(FileTypeException, self).__init__(reason)
 
 

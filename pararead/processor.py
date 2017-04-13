@@ -9,7 +9,6 @@ then object.run(), object.combine().
 
 import abc
 import atexit
-import logging
 import multiprocessing
 import os
 import shutil
@@ -17,11 +16,8 @@ import tempfile
 
 import pysam
 
-from .exceptions import *
+from .exceptions import FileTypeException
 from .utils import *
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 """
@@ -48,7 +44,9 @@ class ParaReadProcessor(object):
 
     __metaclass__ = abc.ABCMeta
 
-    SUPPORTED_FILETYPES = ["BAM", "SAM"]
+    SUPPORTED_FILETYPES = ["BAM", "SAM"]     # Restrict input types.
+    ALL_CHROMOSOMES = ["all"]                # Unaligned allowed.
+
 
     def __init__(self,
                  path_reads_file, cores,
@@ -85,9 +83,6 @@ class ParaReadProcessor(object):
 
         Raises
         ------
-        FileTypeException
-            If the path to the reads file given doesn't appear 
-            to match one of the supported file types.
         ValueError
             If given neither `outfile` path nor `action` action name,
             or if output file already exists and a new one is required.
@@ -96,11 +91,7 @@ class ParaReadProcessor(object):
 
         # Initial path setup and filetype handling.
         name_reads_file = os.path.basename(path_reads_file)
-        readsfile_basename, filetype = os.path.splitext(name_reads_file)
-        self.filetype = filetype.upper().strip(".")
-        if self.filetype not in self.SUPPORTED_FILETYPES:
-            raise FileTypeException(got=self.filetype,
-                                    known=self.SUPPORTED_FILETYPES)
+        readsfile_basename, _ = os.path.splitext(name_reads_file)
         self.path_reads_file = path_reads_file
 
         # Use given output path or derive it from processing behavior.
@@ -117,8 +108,8 @@ class ParaReadProcessor(object):
                 raise ValueError(
                         "Outfile already exists: '{}'".format(self.outfile))
             else:
-                _LOGGER.warn("Outfile already exists and will be overwritten: "
-                             "'%s'", self.outfile)
+                print("WARNING: Output file already exists and "
+                      "will be overwritten: '{}'".format(self.outfile))
 
         # Create temp folder that's deleted upon exit.
         if not temp_folder_parent_path:
@@ -183,19 +174,33 @@ class ParaReadProcessor(object):
 
     def register_files(self):
         """
-        register_files() should add to the PARA_READ_FILES dict any variables
-        that are required by a child class's __call__ function, but are too
-        big or unpicklable and thus cannot be included in the class itself.
-        It can be overridden by the child class, but if so you should call
-        this parent version as well, to populate the variable with readsfile.
+        Add to module map any large/unpicklable variables required by __call__.
+        
+        This can be overridden by the child class, but if so you should call
+        this version as well, to populate the mapping with needed file(s).
+        
+        Raises
+        ------
+        FileTypeException
+            If the path to the reads file given doesn't appear 
+            to match one of the supported file types.
         """
-        path_reads_file = self.path_reads_file
-        _LOGGER.info("Using input file: '%s'", path_reads_file)
-        mode = 'rb' if self.filetype == 'BAM' else 'r'
+
+        print("Using input file: '{}'", self.path_reads_file)
+        _, extension = os.path.splitext(self.path_reads_file)
+        filetype = extension[1:].upper()
+
+        if filetype not in self.SUPPORTED_FILETYPES:
+            raise FileTypeException(self.path_reads_file,
+                                    self.SUPPORTED_FILETYPES)
+
+        # TODO: pysam docs say 'u' for uncompressed BAM.
+        mode = 'rb' if filetype == 'BAM' else 'r'
+
         # Here, check_sq is necessary so that ParaRead can process
         # unaligned files, which is occasionally desirable.
         PARA_READ_FILES[READS_FILE_KEY] = pysam.AlignmentFile(
-                path_reads_file, mode=mode, check_sq=False)
+                self.path_reads_file, mode=mode, check_sq=False)
 
 
     def run(self):
@@ -209,6 +214,9 @@ class ParaReadProcessor(object):
 
         Raises
         ------
+        MissingHeaderException
+            If attempting to run with an unaligned reads file 
+            in the context of an aligned file requirement.
 
         """
         # Because this class is a function class (implements __call__), I can
@@ -216,29 +224,41 @@ class ParaReadProcessor(object):
         # on a single chromosome. By mapping self() across multiple chroms,
         # I get the parallel version.
 
-        _LOGGER.info("Temporary files will be stored in: '{}'".
-                     format(self.temp_folder))
-        _LOGGER.info("Cores: {}".format(str(self.cores)))
-        _LOGGER.info("Processing...")
+        print("Temporary files will be stored in: '{}'".
+              format(self.temp_folder))
+        print("Processing with {} cores...".format(self.cores))
 
         # e.g. ['chr1', 'chr2', 'chr3', 'chr4']
-        chroms = chromosomes_from_bam_header(
-            chroms=self.limit, readsfile=PARA_READ_FILES[READS_FILE_KEY])
+        try:
+            chroms = chromosomes_from_bam_header(
+                readsfile=PARA_READ_FILES[READS_FILE_KEY], chroms=self.limit,
+                require_aligned=not self.allow_unaligned)
+        except KeyError:
+            print("No '{}' has been established; call "
+                  "'register_files' before 'run'".format(READS_FILE_KEY))
+            raise
 
-        # Unaligned files lack any chrom header lines; we just pass "all"
-        # and at the moment, can't process these in parallel (but this could
-        # change if someone wants to implement it).
+        # Unaligned files lack any chrom header lines.
+        # If so, we'll get back a null to disambiguate empty filter case if
+        # we're permitting unaligned input. If requiring aligned input, the
+        # call will have already generated an exception to that effect.
+        if chroms is None:
+            # If permitting unaligned input, set chroms to an indicator.
+            # At the moment, such a case won't parallelize,
+            # but this could change if someone wants to implement it.
+            chroms = self.ALL_CHROMOSOMES
         if len(chroms) == 0:
-            if self.allow_unaligned:
-                chroms = ["all"]
-            else:
-                raise MissingHeaderException(PARA_READ_FILES[READS_FILE_KEY])
+            # This is the case in which filtration left us with no chroms.
+            print("No chromosomes retrieved from '{}' header when "
+                  "filtering to: {}".format(self.path_reads_file,
+                                            self.limit))
+            return []
 
         # Some implementors may have a strand mode attribute.
         # If so, log it here to avoid duplicate messaging, as it
         # will remain constant across processed chunks (chromosomes).
         try:
-            _LOGGER.info("STRAND MODE: {}".format(self.use_strand))
+            print("STRAND MODE: {}".format(self.use_strand))
         except AttributeError:
             pass
 
@@ -252,12 +272,13 @@ class ParaReadProcessor(object):
             results = p.map_async(self, chroms).get(9999999)
 
         result_by_chromosome = zip(chroms, results)
-        bad_chroms, good_chroms = filter_chromosomes(result_by_chromosome)
+        bad_chroms, good_chroms = \
+                partition_chromosomes_by_null_result(result_by_chromosome)
 
-        _LOGGER.info("Discarding {} chromosomes: {}".
-                     format(len(bad_chroms), bad_chroms))
-        _LOGGER.info("Keeping {} chromosomes: {}".
-                     format(len(good_chroms), good_chroms))
+        print("Discarding {} chromosomes: {}".
+              format(len(bad_chroms), bad_chroms))
+        print("Keeping {} chromosomes: {}".
+              format(len(good_chroms), good_chroms))
 
         return good_chroms
 
@@ -269,15 +290,13 @@ class ParaReadProcessor(object):
         file name.
         """
         if not good_chromosomes:
-            _LOGGER.info("No successful chromosomes, so no combining.")
+            print("No successful chromosomes, so no combining.")
             return
         else:
-            _LOGGER.debug("Merging %d files into output file: '%s'",
-                          len(good_chromosomes), self.outfile)
+            print("Merging {} files into output file: '{}'".
+                  format(len(good_chromosomes), self.outfile))
             with open(self.outfile, 'w') as outfile:
                 for chrom in good_chromosomes:
-                    _LOGGER.debug("Fetching results: %s", chrom)
                     with open(self._tempf(chrom), 'r') as tmpf:
-                        _LOGGER.debug("Adding contents from: '%s'", tmpf.name)
                         for line in tmpf:
                             outfile.write(line)

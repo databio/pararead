@@ -14,7 +14,7 @@ class ParaReadProcessorTests:
     Basic tests for ParaReadProcessor.
     """
 
-    def test_abstract(self):
+    def test_is_abstract(self):
         with pytest.raises(TypeError) as exc:
             # Provide filler arguments for ParaReadProcessor parameters
             # in an effort to ensure that the TypeError comes from the
