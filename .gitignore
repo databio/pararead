@@ -1,3 +1,13 @@
-# PyCharm
+# JetBrains and pytest
 .idea/
+.cache/
+
+# Python
+*.pyc
+
+# Track dependencies
+!requirements/*.txt
+
+# Output
+*.txt
 
