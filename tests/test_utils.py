@@ -65,8 +65,11 @@ class ChromosomesFromBamHeaderTests:
             assert expected == func()
 
 
-    def retains_no_chromosomes(self):
-        pass
+    def test_retains_no_chromosomes(self, aligned_reads_file):
+        """ Set of chromosomes disjoint from those present retains nothing. """
+        retain_chroms = ["not-present-1", "chrNull"]
+        assert [] == chromosomes_from_bam_header(
+                readsfile=aligned_reads_file, chroms=retain_chroms)
 
 
 class PartitionChromosomesByResultTests:
