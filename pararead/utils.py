@@ -1,5 +1,10 @@
 """ Parallel reads processor utilities. """
 
+import sys
+if sys.version_info < (3, 3):
+    from collections import Mapping, Sequence
+else:
+    from collections.abc import Mapping, Sequence
 from .exceptions import MissingHeaderException
 
 __author__ = "Vince Reuter"
@@ -50,7 +55,7 @@ def partition_chromosomes_by_null_result(result_by_chromosome):
 
     Parameters
     ----------
-    result_by_chromosome : Sequence of (str, object)
+    result_by_chromosome : Sequence of (str, object) or Mapping[str, object]
         Mapping from chromosome name to processing result
 
     Returns
@@ -65,7 +70,16 @@ def partition_chromosomes_by_null_result(result_by_chromosome):
     # inability to serialize a callable, though, the filtration
     # strategy employed is fixed to be whether the result is null.
     bad_chroms, good_chroms = [], []
-    for c, r in result_by_chromosome:
+    if isinstance(result_by_chromosome, Mapping):
+        res_by_chr = result_by_chromosome.items()
+        if not isinstance(result_by_chromosome, Sequence):
+            # Non-mapping input suggests pre-sorting, so sort Mapping to
+            # facilitate concordance between results for varied input types.
+            # Don't destroy order of an already-ordered Mapping, though.
+            res_by_chr = sorted(res_by_chr)
+    else:
+        res_by_chr = result_by_chromosome
+    for c, r in res_by_chr:
         chroms = bad_chroms if r is None else good_chroms
         chroms.append(c)
     return bad_chroms, good_chroms

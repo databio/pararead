@@ -72,6 +72,19 @@ class ChromosomesFromBamHeaderTests:
                 readsfile=aligned_reads_file, chroms=retain_chroms)
 
 
+
 class PartitionChromosomesByResultTests:
     """ Tests for filtering a collection of results """
-    pass
+
+
+    def test_discards_nulls_keeps_non_nulls(self):
+        result_by_chromosome = {
+                "chr1": None, "chr2": "non-null",
+                "chrX": ["totally", "arbitrary"], "chrY": None}
+        expected_scraps = ["chr1", "chrY"]
+        expected_keeps = ["chr2", "chrX"]
+        scraps, keeps = \
+                partition_chromosomes_by_null_result(result_by_chromosome)
+        # Sort is for comparison in case of Mapping rather than Sequence.
+        assert expected_scraps == scraps
+        assert expected_keeps == keeps
