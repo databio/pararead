@@ -1,5 +1,6 @@
 """ Parallel reads processor utilities. """
 
+import itertools
 import sys
 if sys.version_info < (3, 3):
     from collections import Mapping, Sequence

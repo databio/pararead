@@ -11,6 +11,7 @@ import abc
 import atexit
 from collections import namedtuple
 import itertools
+import logging
 import multiprocessing
 import os
 import shutil
@@ -20,6 +21,9 @@ import pysam
 
 from .exceptions import FileTypeException
 from .utils import *
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 """
@@ -46,6 +50,9 @@ READS_FILE_MAKER = {
     "BCF": ReadsFileMaker(pysam.VariantFile, {})
 }
 
+CHUNKS_PER_CORE = 5
+
+
 
 class ParaReadProcessor(object):
     """
@@ -58,11 +65,12 @@ class ParaReadProcessor(object):
 
 
     def __init__(self,
-                 path_reads_file, cores, chunksize,
+                 path_reads_file, cores,
                  outfile=None, action=None,
                  temp_folder_parent_path=None,
                  limit=None, allow_unaligned=True,
-                 require_new_outfile=False, output_type="txt"):
+                 require_new_outfile=False,
+                 output_type="txt", chunks_per_core=CHUNKS_PER_CORE):
         """
         Regardless of subclass behavior, there is a
         set of fields that an instance should have.
@@ -73,8 +81,6 @@ class ParaReadProcessor(object):
             Data location (aligned BAM/SAM file).
         cores : int | str
             Number of processors to use.
-        chunksize : int
-            Number of reads per processing chunk.
         outfile : str, optional
             Path to location for output file. Either this
             or `action` is required.
@@ -95,6 +101,9 @@ class ParaReadProcessor(object):
             Type of output file(s) generated. This is used by both 
             intermediate files that are created and by the combine() 
             step that creates final output.
+        chunks_per_core : int, optional
+            Number of processing chunks per core, used to derive chunk 
+            size if a chunk size value is not passed to the executor.
 
         Raises
         ------
@@ -148,7 +157,7 @@ class ParaReadProcessor(object):
 
         # Behavior/execution parameters.
         self.cores = int(cores)
-        self.chunksize = chunksize
+        self.chunks_per_core = chunks_per_core
         self.limit = limit
         self.allow_unaligned = allow_unaligned
         self.output_type = output_type
@@ -242,28 +251,7 @@ class ParaReadProcessor(object):
         atexit.register(ensure_closed)
 
 
-    def partition(self, readsfile):
-        """
-        Partition sequencing reads into equally-sized 'chunks' for 
-        parallel processing. This treats all reads equally, in that 
-        they are grouped by contiguous occurrence within the given 
-        input file. This facilitates processing of unaligned reads, 
-        but it means that reads from the same chromosome will not be 
-        processed together. This can be overridden if that's desired.
-        
-        Parameters
-        ----------
-        readsfile
-
-        Returns
-        -------
-
-        """
-        return itertools.groupby(enumerate(readsfile),
-                                 key=lambda (i, r): i // self.chunksize)
-
-
-    def run(self):
+    def run(self, chunksize=None):
         """
         Do the processing defined partitioned across each unit (chromosome).
 
@@ -271,7 +259,10 @@ class ParaReadProcessor(object):
         -------
         collections.Iterable of str
             Names of chromosomes for which result is non-null.
-
+        chunksize : int, optional
+            Number of reads per processing chunk; if unspecified, the 
+            default heuristic of size s.t. each core gets ~ 4 chunks.
+        
         Raises
         ------
         MissingHeaderException
@@ -284,17 +275,50 @@ class ParaReadProcessor(object):
         # on a single chromosome. By mapping self() across multiple chroms,
         # I get the parallel version.
 
-        print("Temporary files will be stored in: '{}'".
-              format(self.temp_folder))
-        print("Processing with {} cores...".format(self.cores))
-
-        # e.g. ['chr1', 'chr2', 'chr3', 'chr4']
         try:
-            chunks = self.partition(PARA_READ_FILES[READS_FILE_KEY])
+            readsfile = PARA_READ_FILES[READS_FILE_KEY]
         except KeyError:
             print("No '{}' has been established; call "
                   "'register_files' before 'run'".format(READS_FILE_KEY))
             raise
+
+        print("Temporary files will be stored in: '{}'".
+              format(self.temp_folder))
+        print("Processing with {} cores...".format(self.cores))
+
+        # Some implementors may have a strand mode attribute.
+        # If so, log it here to avoid duplicate messaging, as it
+        # will remain constant across processed chunks (chromosomes).
+        try:
+            print("STRAND MODE: {}".format(self.use_strand))
+        except AttributeError:
+            pass
+
+        # TODO: force implementation of call to accept chunk ID.
+        if self.cores == 1:
+            chunk_result_pairs = map(self, [(0, readsfile)])
+        else:
+            try:
+                chunks = self.partition(readsfile)
+            except AttributeError:
+                chunks = self.chunk_reads(readsfile, chunksize)
+                _LOGGER.info("Chunked reads by index")
+            else:
+                _LOGGER.info("Chunked reads by partition function")
+            p = multiprocessing.Pool(self.cores)
+            # The typical call to map fails to acknowledge KeyboardInterrupts.
+            # This fix helps: http://stackoverflow.com/a/1408476/946721
+            chunk_result_pairs = p.map_async(self, chunks).get(9999999)
+
+        bad_chunks, good_chunks = \
+                partition_chunks_by_null_result(chunk_result_pairs)
+
+        print("Discarding {} chunk(s) of reads: {}".
+              format(len(bad_chunks), bad_chunks))
+        print("Keeping {} chunk(s) of reads: {}".
+              format(len(good_chunks), good_chunks))
+
+        return good_chunks
 
         """
         # Unaligned files lack any chrom header lines.
@@ -315,41 +339,52 @@ class ParaReadProcessor(object):
             return []
         """
 
-        # Some implementors may have a strand mode attribute.
-        # If so, log it here to avoid duplicate messaging, as it
-        # will remain constant across processed chunks (chromosomes).
-        try:
-            print("STRAND MODE: {}".format(self.use_strand))
-        except AttributeError:
-            pass
-
-        chunk_ids, chunks = zip(*chunks)
-
-        # Process chromosomes in parallel
-        if self.cores == 1:
-            results = map(self, chunks)
-        else:
-            p = multiprocessing.Pool(self.cores)
-            # The typical call to map fails to acknowledge KeyboardInterrupts.
-            # This fix helps: http://stackoverflow.com/a/1408476/946721
-            results = p.map_async(self, chunks).get(9999999)
-
-        result_by_chunk = zip(chunk_ids, results)
-        bad_chunks, good_chunks = \
-                partition_chunks_by_null_result(result_by_chunk)
-
         """
         result_by_chromosome = zip(chroms, results)
         bad_chroms, good_chroms = \
                 partition_chunks_by_null_result(result_by_chromosome)
         """
 
-        print("Discarding {} chunk(s) of reads: {}".
-              format(len(bad_chunks), bad_chunks))
-        print("Keeping {} chunk(s) of reads: {}".
-              format(len(good_chunks), good_chunks))
 
-        return good_chunks
+    def chunk_reads(self, readsfile, chunksize=None):
+        """
+        Partition sequencing reads into equally-sized 'chunks' for 
+        parallel processing. This treats all reads equally, in that 
+        they are grouped by contiguous occurrence within the given 
+        input file. This facilitates processing of unaligned reads, 
+        but it means that reads from the same chromosome will not be 
+        processed together. This can be overridden if that's desired.
+
+        Parameters
+        ----------
+        readsfile : Iterable, likely pysam.AlignmentFile or pysam.VariantFile
+            Reads to split into chunks.
+        chunksize : int
+            Number of units (i.e., reads) per processing chunk. 
+            If unspecified, this is derived using the instance's 
+            cores count and chunks-per-core parameter, along with 
+            a count of the number of units (reads). Note that if 
+            this is unspecified, there will be some additional time 
+            used to count the reads to derive chunk size.
+
+        Returns
+        -------
+        Iterable of (int, itertools.groupby)
+            Pairs of chunk key/ID and chunk reads chunk itself.
+
+        """
+        if not chunksize or chunksize < 1:
+            _, reads_clone = itertools.tee(readsfile)
+            num_chunks = self.cores * self.chunks_per_core
+            _LOGGER.info("Deriving chunk size for %d chunks: "
+                         "%d cores x %d chunks/core",
+                         num_chunks, self.cores, self.chunks_per_core)
+            _, reads_clone = itertools.tee(readsfile)
+            num_reads = sum(1 for _ in reads_clone)
+            _LOGGER.info("Reads count: %d", num_reads)
+            chunksize = int(num_reads / num_chunks)
+        return itertools.groupby(
+            enumerate(readsfile), key=lambda (i, _): int(i / chunksize))
 
 
     def combine(self, good_chromosomes):
