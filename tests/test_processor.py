@@ -20,10 +20,7 @@ class ParaReadProcessorTests:
             # in an effort to ensure that the TypeError comes from the
             # requirement that the class is abstract, rather than from
             # missing arguments for required parameters.
-            ParaReadProcessor(
-                    path_reads_file="dummy.bam",
-                    cores=4, outfile="dummy.out",
-                    action="irrelevant-placeholder",
-                    temp_folder_parent_path="parent-folder")
+            ParaReadProcessor(path_reads_file="dummy.bam", chunksize=1000,
+                              cores=4, outfile="dummy.txt")
         # As a fallback, check that the exception message mentions "abstract."
         assert "abstract" in exc.value.message

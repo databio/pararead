@@ -9,6 +9,7 @@ then object.run(), object.combine().
 
 import abc
 import atexit
+from collections import namedtuple
 import itertools
 import multiprocessing
 import os
@@ -45,7 +46,14 @@ class ParaReadProcessor(object):
 
     __metaclass__ = abc.ABCMeta
 
-    SUPPORTED_FILETYPES = ["BAM", "SAM"]     # Restrict input types.
+    # TODO: pysam docs say 'u' for uncompressed BAM.
+    FILE_BY_TYPE = {
+            "SAM": ReadsFileMaker(pysam.AlignmentFile, ('r', )),
+            "BAM": ReadsFileMaker(pysam.AlignmentFile, ('rb', )),
+            "CRAM": ReadsFileMaker(pysam.AlignmentFile, ('rc', )),
+            "VCF": ReadsFileMaker(pysam.VariantFile, ()),
+            "BCF": ReadsFileMaker(pysam.VariantFile, ())
+    }
 
 
     def __init__(self,
@@ -195,7 +203,7 @@ class ParaReadProcessor(object):
                             "{}.{}".format(chrom, self.output_type))
 
 
-    def register_files(self):
+    def register_files(self, *file_builder_args, **file_builder_kwargs):
         """
         Add to module map any large/unpicklable variables required by __call__.
         
@@ -213,17 +221,16 @@ class ParaReadProcessor(object):
         _, extension = os.path.splitext(self.path_reads_file)
         filetype = extension[1:].upper()
 
-        if filetype not in self.SUPPORTED_FILETYPES:
-            raise FileTypeException(self.path_reads_file,
-                                    self.SUPPORTED_FILETYPES)
-
-        # TODO: pysam docs say 'u' for uncompressed BAM.
-        mode = 'rb' if filetype == 'BAM' else 'r'
+        try:
+            reads_file_maker = self.FILE_BY_TYPE[filetype]
+        except KeyError:
+            raise FileTypeException(got=self.path_reads_file,
+                                    known=self.FILE_BY_TYPE.keys())
 
         # Here, check_sq is necessary so that ParaRead can process
         # unaligned files, which is occasionally desirable.
-        readsfile = pysam.AlignmentFile(
-                self.path_reads_file, mode=mode, check_sq=False)
+        builder, args = reads_file_maker
+        readsfile = builder(*(args + file_builder_args), **file_builder_kwargs)
         PARA_READ_FILES[READS_FILE_KEY] = readsfile
 
         def ensure_closed():
@@ -359,3 +366,7 @@ class ParaReadProcessor(object):
                     with open(self._tempf(chrom), 'r') as tmpf:
                         for line in tmpf:
                             outfile.write(line)
+
+
+
+ReadsFileMaker = namedtuple("ReadsFileMaker", field_names=["ctor", "args"])
