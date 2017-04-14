@@ -308,7 +308,7 @@ class ParaReadProcessor(object):
             p = multiprocessing.Pool(self.cores)
             # The typical call to map fails to acknowledge KeyboardInterrupts.
             # This fix helps: http://stackoverflow.com/a/1408476/946721
-            # TODO: to provide chunk ID, we need startmap_async (Python 3.3+).
+            # TODO: to provide chunk ID, we need starmap_async (Python 3.3+).
             # TODO: otherwise, we can't provide it and pass zip(*chunks)[1].
             chunk_result_pairs = p.map_async(self, chunks).get(9999999)
 
