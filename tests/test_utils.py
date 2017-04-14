@@ -2,15 +2,14 @@
 
 from functools import partial
 import itertools
-import os
 
 import pytest
-import pysam
 
 from pararead.exceptions import MissingHeaderException
 from pararead.utils import \
-    chromosomes_from_bam_header, partition_chunks_by_null_result
-from tests import NAME_ALIGNED_FILE, NAME_UNALIGNED_FILE
+    parse_bam_header, partition_chunks_by_null_result
+from tests import PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
+from tests.helpers import ReadsfileWrapper
 
 
 __author__ = "Vince Reuter"
@@ -18,12 +17,10 @@ __email__ = "vreuter@virginia.edu"
 
 
 
-class ChromosomesFromBamHeaderTests:
+class ParseBamHeaderTests:
     """ Tests for fetching chromosome names from BAM file header. """
 
     CHROMOSOME_NAMES = ["K1_unmethylated", "K3_methylated"]
-    FILE_BY_ALIGNMENT = {True: NAME_ALIGNED_FILE, False: NAME_UNALIGNED_FILE}
-    CHROMOSOMES_BY_FILE = {NAME_ALIGNED_FILE: CHROMOSOME_NAMES}
 
 
     @pytest.mark.parametrize(
@@ -31,8 +28,8 @@ class ChromosomesFromBamHeaderTests:
             argvalues=[{"K1_unmethylated"}, ("K3_methylated", )])
     def test_filters_chromosomes(self, chromosomes, aligned_reads_file):
         """ Chromosome name-from-BAM-header fetch can filter. """
-        observed = chromosomes_from_bam_header(
-                readsfile=aligned_reads_file, chroms=chromosomes)
+        observed = parse_bam_header(
+                readsfile=aligned_reads_file, chroms=chromosomes).keys()
         assert list(chromosomes) == list(observed)
 
 
@@ -40,36 +37,47 @@ class ChromosomesFromBamHeaderTests:
             argnames=["require_aligned", "is_aligned"],
             argvalues=itertools.product([False, True], [False, True]))
     def test_allows_alignment_requirement_flexibility(
-            self, require_aligned, is_aligned, path_test_data):
+            self, require_aligned, is_aligned):
         """ The chromosome fetcher affords option to require aligned input. """
 
-        # Create the reads file.
-        name_reads_file = self.FILE_BY_ALIGNMENT[is_aligned]
-        path_reads_file = os.path.join(path_test_data, name_reads_file)
-        readsfile = pysam.AlignmentFile(
-            path_reads_file, mode='rb', check_sq=False)
+        path_reads_file = \
+                PATH_ALIGNED_FILE if is_aligned else PATH_UNALIGNED_FILE
+        with ReadsfileWrapper(path_reads_file,
+                              check_sq=is_aligned) as readsfile:
 
-        # Parameterize the function call
-        func = partial(chromosomes_from_bam_header,
-                       readsfile=readsfile, require_aligned=require_aligned)
+            # Parameterize the function call
+            func = partial(parse_bam_header, readsfile=readsfile,
+                           require_aligned=require_aligned)
 
-        # Determine expected behavior.
-        if not is_aligned and require_aligned:
-            # Only 1 of the 4 cases is exceptional.
-            with pytest.raises(MissingHeaderException):
-                func()
-        else:
-            # Unaligned input returns null chromosome names collection;
-            # aligned input retains all no chromosomes with no filtration.
-            expected = self.CHROMOSOME_NAMES if is_aligned else None
-            assert expected == func()
+            # Determine expected behavior.
+            if not is_aligned and require_aligned:
+                # Only 1 of the 4 cases is exceptional.
+                with pytest.raises(MissingHeaderException):
+                    func()
+            elif not is_aligned:
+                assert func() is None
+            else:
+                # Unaligned input returns null chromosome names collection;
+                # aligned input retains all no chromosomes with no filtration.
+                assert self.CHROMOSOME_NAMES == func().keys()
 
 
-    def test_retains_no_chromosomes(self, aligned_reads_file):
+    @pytest.mark.parametrize(argnames="is_aligned", argvalues=[False, True])
+    def test_no_chromosome_intersection(self, is_aligned):
         """ Set of chromosomes disjoint from those present retains nothing. """
+
         retain_chroms = ["not-present-1", "chrNull"]
-        assert [] == chromosomes_from_bam_header(
-                readsfile=aligned_reads_file, chroms=retain_chroms)
+        path_reads_file = \
+                PATH_ALIGNED_FILE if is_aligned else PATH_UNALIGNED_FILE
+
+        with ReadsfileWrapper(path_reads_file,
+                              check_sq=is_aligned) as readsfile:
+            observed = parse_bam_header(
+                    readsfile=readsfile, chroms=retain_chroms,
+                    require_aligned=False)
+
+        expected = {} if is_aligned else None
+        assert expected == observed
 
 
 

@@ -1,39 +1,48 @@
 """ Configuration of tests """
 
-import os
 import pytest
 import pysam
 
-from tests import NAME_ALIGNED_FILE, NAME_UNALIGNED_FILE
+from tests import \
+    CORES_PARAM_NAME, IS_ALIGNED_PARAM_NAME, \
+    PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
+from tests.helpers import IdentityProcessor, ReadsfileWrapper
 
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-
-@pytest.fixture(scope="session")
-def path_test_data():
-    """
-    Provide shared path to data for tests.
-    
-    Returns
-    -------
-    str
-        Path to data for tests.
-
-    """
-    return os.path.join(os.path.dirname(__file__), "data")
+"""
+def pytest_generate_tests(metafunc):
+    if "require_aligned" in metafunc.fixturenames:
+        metafunc.parametrize(
+            argnames=["is_aligned", "path_reads_file"],
+            argvalues=[(False, PATH_UNALIGNED_FILE),
+                       (True, PATH_ALIGNED_FILE)],
+            ids=lambda (is_aln, rfile): "{} ({})".format(
+                    rfile.filename, "aligned" if is_aln else "unaligned"))
+"""
 
 
 @pytest.fixture(scope="function")
-def aligned_reads_file(path_test_data):
+def aligned_reads_file():
     """
-    Create path to aligned reads file.
+    Create aligned reads file.
     
-    Parameters
-    ----------
-    path_test_data : str
-        Path to tests' data folder.
+    Returns
+    -------
+    pysam.AlignmentFile
+        File with pysam.AlignedSegments for reads.
+
+    """
+    return pysam.AlignmentFile(PATH_ALIGNED_FILE)
+
+
+
+@pytest.fixture(scope="function")
+def unaligned_reads_file():
+    """
+    Create unaligned reads file
 
     Returns
     -------
@@ -41,25 +50,22 @@ def aligned_reads_file(path_test_data):
         File with pysam.AlignedSegments for reads.
 
     """
-    path_reads_file = os.path.join(path_test_data, NAME_ALIGNED_FILE)
-    return pysam.AlignmentFile(path_reads_file, mode='rb', check_sq=False)
+    return ReadsfileWrapper(PATH_UNALIGNED_FILE)
 
 
 
 @pytest.fixture(scope="function")
-def unaligned_reads_file(path_test_data):
-    """
-    
-    Parameters
-    ----------
-    path_test_data : str
-        Path to folder containing test data.
+def identity_processor(request):
 
-    Returns
-    -------
-    pysam.AlignmentFile
-        File with pysam.AlignedSegments for reads.
+    if CORES_PARAM_NAME not in request.fixturenames:
+        raise Exception("To create a processor, test case must "
+                        "specify '{}' as a fixture".format(CORES_PARAM_NAME))
+    num_cores = request.getfixturevalue(CORES_PARAM_NAME)
 
-    """
-    path_reads_file = os.path.join(path_test_data, NAME_UNALIGNED_FILE)
-    return pysam.AlignmentFile(path_reads_file, mode='rb', check_sq=False)
+    if IS_ALIGNED_PARAM_NAME in request.fixturenames \
+            and not request.getfixturevalue(IS_ALIGNED_PARAM_NAME):
+        path_reads_file = PATH_UNALIGNED_FILE
+    else:
+        path_reads_file = PATH_ALIGNED_FILE
+
+    return IdentityProcessor(path_reads_file, cores=num_cores)

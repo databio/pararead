@@ -56,21 +56,28 @@ CHUNKS_PER_CORE = 5
 
 class ParaReadProcessor(object):
     """
-    An abstract class for parallel processing of sequencing reads.
-    Implement __call__ to define what will be done with each batch
-    (e.g., chromosome) of reads.
+    Base class for parallel processing of sequencing reads.
+    
+    Implement __call__ to define work for each reads chunk, (e.g., chromosome).
+    Unaligned reads are permitted, but the work then cannot rely on any sort 
+    of biologically meaningful chunking of the reads unless a partition() 
+    function is implemented. If unaligned reads are used and no partition() is 
+    implemented, reads will be arbitrarily split into chunks.
+    
     """
 
     __metaclass__ = abc.ABCMeta
+
+    FETCH_ALL_FLAG = "ALL"
 
 
     def __init__(self,
                  path_reads_file, cores,
                  outfile=None, action=None,
                  temp_folder_parent_path=None,
-                 limit=None, allow_unaligned=True,
+                 limit=None, allow_unaligned=False,
                  require_new_outfile=False,
-                 output_type="txt", chunks_per_core=CHUNKS_PER_CORE):
+                 output_type="txt", by_chromosome=True):
         """
         Regardless of subclass behavior, there is a
         set of fields that an instance should have.
@@ -101,9 +108,9 @@ class ParaReadProcessor(object):
             Type of output file(s) generated. This is used by both 
             intermediate files that are created and by the combine() 
             step that creates final output.
-        chunks_per_core : int, optional
-            Number of processing chunks per core, used to derive chunk 
-            size if a chunk size value is not passed to the executor.
+        by_chromosome : bool, default True
+            Whether to chunk reads on a per-chromosome basis, 
+            implicitly imposing requirement for aligned reads. 
 
         Raises
         ------
@@ -112,6 +119,10 @@ class ParaReadProcessor(object):
             or if output file already exists and a new one is required.
 
         """
+
+        if allow_unaligned:
+            raise NotImplementedError(
+                    "Currently, just aligned reads are supported.")
 
         # Initial path setup and filetype handling.
         name_reads_file = os.path.basename(path_reads_file)
@@ -157,10 +168,10 @@ class ParaReadProcessor(object):
 
         # Behavior/execution parameters.
         self.cores = int(cores)
-        self.chunks_per_core = chunks_per_core
         self.limit = limit
-        self.allow_unaligned = allow_unaligned
+        self.require_aligned = by_chromosome or not allow_unaligned
         self.output_type = output_type
+        self.by_chromosome = by_chromosome
 
 
     @abc.abstractmethod
@@ -282,6 +293,33 @@ class ParaReadProcessor(object):
                   "'register_files' before 'run'".format(READS_FILE_KEY))
             raise
 
+        if not self.by_chromosome:
+            read_chunk_keys = self.chunk_reads(readsfile, chunksize=chunksize)
+        elif self.cores == 1:
+            # The chromosome-fetch function provided here knows how
+            # to interpret the flag. If overridden, the new implementation
+            # should also provide a
+            read_chunk_keys = [self.FETCH_ALL_FLAG]
+        else:
+            size_by_chromosome = parse_bam_header(
+                    readsfile=readsfile, chroms=self.limit,
+                    require_aligned=self.require_aligned)
+            if size_by_chromosome is None:
+                # Unaligned files lack any chrom header lines.
+                # If so, we'll get back a null to disambiguate
+                # empty filter case if permitting unaligned
+                # input. If requiring aligned input, the call
+                # will have already generated an exception to that effect.
+                _LOGGER.warn("Failed attempt to parse chromosomes as read "
+                             "chunk keys; arbitrarily chunking reads instead.")
+                read_chunk_keys = self.chunk_reads(
+                        readsfile, chunksize=chunksize)
+            else:
+                # Interleave chromosomes by size so that if tasks
+                # are pre-allocated to workers, we'll get roughly even bins.
+                read_chunk_keys = \
+                    interleave_chromosomes_by_size(size_by_chromosome.items())
+
         print("Temporary files will be stored in: '{}'".
               format(self.temp_folder))
         print("Processing with {} cores...".format(self.cores))
@@ -294,26 +332,25 @@ class ParaReadProcessor(object):
         except AttributeError:
             pass
 
-        # TODO: force implementation of call to accept chunk ID.
+        # Maps for order preservation. This permits arbitrary result return,
+        # i.e. something other than the chunk key itself, when the process
+        # completes. It would be a bit simpler to filter on the results
+        # directly, but clients may want to implement a processor that
+        # has a result with meaning beyond a signal/flag that it succeeded
+        # for a particular chunk ID. That is, it may produce a result with
+        # downstream meaning, and not be used simply for effect on disk.
         if self.cores == 1:
-            chunk_result_pairs = map(self, [(0, readsfile)])
+            results = map(self, read_chunk_keys)
         else:
-            try:
-                chunks = self.partition(readsfile)
-            except AttributeError:
-                chunks = self.chunk_reads(readsfile, chunksize)
-                _LOGGER.info("Chunked reads by index")
-            else:
-                _LOGGER.info("Chunked reads by partition function")
-            p = multiprocessing.Pool(self.cores)
+            workers = multiprocessing.Pool(self.cores)
             # The typical call to map fails to acknowledge KeyboardInterrupts.
             # This fix helps: http://stackoverflow.com/a/1408476/946721
-            # TODO: to provide chunk ID, we need starmap_async (Python 3.3+).
-            # TODO: otherwise, we can't provide it and pass zip(*chunks)[1].
-            chunk_result_pairs = p.map_async(self, chunks).get(9999999)
+            results = workers.map_async(self, read_chunk_keys).get(9999999)
 
+        # TODO: note the dependence on order here.
+        result_by_chunk = zip(read_chunk_keys, results)
         bad_chunks, good_chunks = \
-                partition_chunks_by_null_result(chunk_result_pairs)
+                partition_chunks_by_null_result(result_by_chunk)
 
         print("Discarding {} chunk(s) of reads: {}".
               format(len(bad_chunks), bad_chunks))
@@ -322,32 +359,8 @@ class ParaReadProcessor(object):
 
         return good_chunks
 
-        """
-        # Unaligned files lack any chrom header lines.
-        # If so, we'll get back a null to disambiguate empty filter case if
-        # we're permitting unaligned input. If requiring aligned input, the
-        # call will have already generated an exception to that effect.
-        if chroms is None:
-            # If permitting unaligned input, set chroms to an indicator.
-            # At the moment, such a case won't parallelize,
-            # but this could change if someone wants to implement it.
-            raise MissingHeaderException(
-                    filepath=PARA_READ_FILES[READS_FILE_KEY].filename)
-        if len(chroms) == 0:
-            # This is the case in which filtration left us with no chroms.
-            print("No chromosomes retrieved from '{}' header when "
-                  "filtering to: {}".format(self.path_reads_file,
-                                            self.limit))
-            return []
-        """
 
-        """
-        result_by_chromosome = zip(chroms, results)
-        bad_chroms, good_chroms = \
-                partition_chunks_by_null_result(result_by_chromosome)
-        """
-
-
+    @pending_feature
     def chunk_reads(self, readsfile, chunksize=None):
         """
         Partition sequencing reads into equally-sized 'chunks' for 
@@ -377,23 +390,55 @@ class ParaReadProcessor(object):
         """
         if not chunksize or chunksize < 1:
             _, reads_clone = itertools.tee(readsfile)
-            num_chunks = self.cores * self.chunks_per_core
+            num_chunks = self.cores * CHUNKS_PER_CORE
+
+            # Count the reads.
             _LOGGER.info("Deriving chunk size for %d chunks: "
                          "%d cores x %d chunks/core",
-                         num_chunks, self.cores, self.chunks_per_core)
+                         num_chunks, self.cores, CHUNKS_PER_CORE)
             _, reads_clone = itertools.tee(readsfile)
             num_reads = sum(1 for _ in reads_clone)
             _LOGGER.info("Reads count: %d", num_reads)
+
             chunksize = int(num_reads / num_chunks)
+
         return itertools.groupby(
             enumerate(readsfile), key=lambda (i, _): int(i / chunksize))
 
 
+    def fetch_chunk(self, chromosome):
+        """
+        Pull a chunk of sequencing reads from a file.
+        
+        Parameters
+        ----------
+        chromosome : str
+            Identifier for chunk of reads to select.
+
+        Returns
+        -------
+        pysam.libcalignmentfile.IteratorRowRegion
+            Block of sequencing reads corresponding to given identifier
+
+        """
+        if not self.by_chromosome:
+            raise NotImplementedError(
+                    "Provide a fetch_chunk implementation "
+                    "if not partitioning reads by chromosome.")
+        readsfile = PARA_READ_FILES[READS_FILE_KEY]
+        reference = None if chromosome == self.FETCH_ALL_FLAG else chromosome
+        return readsfile.fetch(reference=reference, multiple_iterators=True)
+
+
     def combine(self, good_chromosomes):
         """
-        After running the process in parallel, this 'reduce' step will simply
-        merge all the temporary files into one, and rename it to the output
-        file name.
+        Aggregate output from independent read chunks into single output file.
+        
+        Parameters
+        ----------
+        good_chromosomes : Iterable of str
+            Identifier (e.g., chromosome) for each chunk of reads processed.
+        
         """
         if not good_chromosomes:
             print("No successful chromosomes, so no combining.")

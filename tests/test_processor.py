@@ -1,7 +1,10 @@
 """ Basic tests for ParaRead """
 
+import itertools
 import pytest
 from pararead.processor import ParaReadProcessor
+from tests import PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
+from tests.helpers import IdentityProcessor
 
 
 __author__ = "Vince Reuter"
@@ -20,16 +23,25 @@ class ConstructorTests:
             # in an effort to ensure that the TypeError comes from the
             # requirement that the class is abstract, rather than from
             # missing arguments for required parameters.
-            ParaReadProcessor(path_reads_file="dummy.bam", chunksize=1000,
+            ParaReadProcessor(path_reads_file="dummy.bam",
                               cores=4, outfile="dummy.txt")
         # As a fallback, check that the exception message mentions "abstract."
         assert "abstract" in exc.value.message
 
-    def test_requires_outfile_or_action(self):
-        pass
+
+    @pytest.mark.parametrize(
+            argnames=["filepath", "num_cores"],
+            argvalues=itertools.product(
+                    [PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE], [1, 4]),
+            ids=lambda (fp, cores): "{}; cores={}".format(fp, cores))
+    def test_requires_outfile_or_action(self, filepath, num_cores):
+        """ Explicit output file or action name to derive one is needed. """
+        with pytest.raises(ValueError):
+            IdentityProcessor(filepath, cores=num_cores)
 
 
     def test_removes_tempfolder(self):
+        """ Folder for temporary files should be removed. """
         pass
 
 
@@ -74,4 +86,9 @@ class ExecutionTests:
 
     def test_fixed_chunksize(self):
         pass
-    
+
+
+
+class CombinerTests:
+    """ Processor provides function to combine intermediate results. """
+    pass

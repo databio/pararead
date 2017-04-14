@@ -29,5 +29,5 @@ class MissingHeaderException(Exception):
     def __init__(self, filepath=""):
         reason = "No chromosomes in header; this file is " \
                  "empty or unaligned. Aligned reads are required{}".\
-                 format(": {}".format(filepath) if filepath else ".")
+                 format(": '{}'".format(filepath) if filepath else ".")
         super(MissingHeaderException, self).__init__(reason)

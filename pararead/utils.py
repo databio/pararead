@@ -1,6 +1,7 @@
 """ Parallel reads processor utilities. """
 
 import itertools
+import operator as op
 import sys
 if sys.version_info < (3, 3):
     from collections import Mapping, Sequence
@@ -8,16 +9,88 @@ else:
     from collections.abc import Mapping, Sequence
 from .exceptions import MissingHeaderException
 
+
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-__all__ = ["chromosomes_from_bam_header", "make_outfile_name",
-           "partition_chunks_by_null_result", "unbuffered_write"]
+__all__ = ["interleave_chromosomes_by_size",
+           "make_outfile_name", "parse_bam_header",
+           "partition_chunks_by_null_result",
+           "pending_feature", "unbuffered_write"]
 
 
 
-def chromosomes_from_bam_header(readsfile, chroms=None, require_aligned=False):
+def interleave_chromosomes_by_size(size_by_chromosome):
+    """
+    Arrange chromosome names to facilitate even binning.
+    
+    Intersperse/interleave chromosomes such that ones at opposite ends of 
+    the spectrum of sizes are adjacent.
+    
+    Parameters
+    ----------
+    size_by_chromosome : Iterable of (str, int) or Mapping[str, int]
+
+    Returns
+    -------
+    Iterable of str
+        Names of chromosomes
+
+    """
+
+    if not size_by_chromosome:
+        return []
+    if isinstance(size_by_chromosome, Mapping):
+        size_by_chromosome = size_by_chromosome.items()
+
+    ordered_chromosomes = zip(*sorted(size_by_chromosome,
+                                      key=op.itemgetter(1)))[0]
+    num_chromosomes = len(ordered_chromosomes)
+    meridian = int(num_chromosomes / 2)
+    first_half, second_half = \
+            ordered_chromosomes[:meridian], ordered_chromosomes[meridian:]
+
+    interleaved = list(itertools.chain(*zip(first_half, second_half[::-1])))
+
+    num_interleaved = len(interleaved)
+    if num_interleaved != num_chromosomes:
+        # Account for odd number of chromosomes; zip will truncate.
+        assert num_interleaved == num_chromosomes - 1
+        maybe_missing_chrom = ordered_chromosomes[-1]
+        assert maybe_missing_chrom not in interleaved
+        interleaved.append(maybe_missing_chrom)
+
+    return interleaved
+
+
+
+def make_outfile_name(readsfile_basename, processing_action):
+    """
+    Create a name for an output file based on action performed.
+
+    Parameters
+    ----------
+    readsfile_basename : str
+        Path-less and extension-less version of name of file of reads.
+    processing_action : str
+        Name for the processing action being performed by a
+        parallel processor of sequencing reads (i.e., a class
+        derived from ParaReadProcessor).
+
+    Returns
+    -------
+    str
+        (Fallback) name for output file, used by the
+        ParaReadProcessor constructor if a null or
+        empty output filename is provided at creation.
+
+    """
+    return "{}_{}.txt".format(readsfile_basename, processing_action)
+
+
+
+def parse_bam_header(readsfile, chroms=None, require_aligned=False):
     """
     Get a list of chromosomes (and lengths) in this readsfile from header.
 
@@ -33,20 +106,28 @@ def chromosomes_from_bam_header(readsfile, chroms=None, require_aligned=False):
 
     Returns
     -------
-    None or list of str
-        Names of chromosomes present in the input file that are of interest 
-        as specified by the 
+    None or Iterable of str, int
+        Null if no chromosomes are in the header
 
     """
-    chroms_in_header = [headline['SN'] for headline in readsfile.header['SQ']]
-    if not chroms_in_header:
+
+    try:
+        all_sizes_by_chrom = {headline['SN']: headline['LN']
+                              for headline in readsfile.header['SQ']}
+    except KeyError:
+        all_sizes_by_chrom = {}
+
+    if not all_sizes_by_chrom:
         if require_aligned:
             raise MissingHeaderException(readsfile.filename)
         else:
             return None
+
     if not chroms:
-        return chroms_in_header
-    return [c for c in chroms_in_header if c in set(chroms)]
+        # No filtration --> retain all chromosomes.
+        return all_sizes_by_chrom
+
+    return {c: s for c, s in all_sizes_by_chrom.items() if c in set(chroms)}
 
 
 
@@ -87,28 +168,11 @@ def partition_chunks_by_null_result(result_by_chromosome):
 
 
 
-def make_outfile_name(readsfile_basename, processing_action):
-    """
-    Create a name for an output file based on action performed.
-
-    Parameters
-    ----------
-    readsfile_basename : str
-        Path-less and extension-less version of name of file of reads.
-    processing_action : str
-        Name for the processing action being performed by a
-        parallel processor of sequencing reads (i.e., a class
-        derived from ParaReadProcessor).
-
-    Returns
-    -------
-    str
-        (Fallback) name for output file, used by the
-        ParaReadProcessor constructor if a null or
-        empty output filename is provided at creation.
-
-    """
-    return "{}_{}.txt".format(readsfile_basename, processing_action)
+def pending_feature(not_yet_implemented):
+    def raise_error(*args, **kwargs):
+        raise NotImplementedError("{} is not fully implemented".
+                                  format(not_yet_implemented.__name__))
+    return raise_error
 
 
 
