@@ -10,7 +10,7 @@ import pysam
 from pararead.exceptions import MissingHeaderException
 from pararead.utils import \
     chromosomes_from_bam_header, partition_chunks_by_null_result
-from conftest import NAME_ALIGNED_FILE, NAME_UNALIGNED_FILE
+from tests import NAME_ALIGNED_FILE, NAME_UNALIGNED_FILE
 
 
 __author__ = "Vince Reuter"

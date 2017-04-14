@@ -46,7 +46,6 @@ class ParaReadProcessor(object):
     __metaclass__ = abc.ABCMeta
 
     SUPPORTED_FILETYPES = ["BAM", "SAM"]     # Restrict input types.
-    ALL_CHROMOSOMES = ["all"]                # Unaligned allowed.
 
 
     def __init__(self,
@@ -147,18 +146,32 @@ class ParaReadProcessor(object):
 
 
     @abc.abstractmethod
-    def __call__(self, chrom):
+    def __call__(self, reads_chunk, chunk_id):
         """
-        Perform the processing desired by the base class, per-chromosome.
-        This should take a chrom string, and process all the reads on
-        that chromosome, producing a file called temp_folder/<chrom>.<ext>
-        and then return either chrom, if the process succeeded,
-        or 'None', if it failed.
+        Perform 'chunk'-wise processing implemented in the subclass.
+        
+        A concrete implementation operates on a chunk of sequencing reads. 
+        By default, a 'chunk' simply consists of contiguous reads from the 
+        input file, but a subclass that overrides the partitioning mechanism 
+        can change that. In that case, the provided 'chunk_id' will likely 
+        be meaningful, but otherwise it can be ignored. If processing fails 
+        for the given chunk, the concrete implementation should communicate 
+        this by returning None.
 
         Parameters
         ----------
-        chrom : str
-            Chromosome to process
+        reads_chunk : Iterable of pysam.AlignedSegment
+            Chunk of sequencing reads to process.
+        chunk_id : int or str
+            Reads chunk identifier; this is passed in case it's of use 
+            in the client implementation, but for many use cases it 
+            can be ignored.
+        
+        Returns
+        -------
+        None or object
+            None if the chunk's processing failed, otherwise a non-null result.
+        
         """
         pass
 
@@ -211,25 +224,31 @@ class ParaReadProcessor(object):
         # unaligned files, which is occasionally desirable.
         readsfile = pysam.AlignmentFile(
                 self.path_reads_file, mode=mode, check_sq=False)
-
         PARA_READ_FILES[READS_FILE_KEY] = readsfile
-
-        ### NEW ###
-
-        # TODO: override?
-        if self.partition == ParaReadProcessor.partition:
-            # Count reads to define partition function.
-            pass
 
         def ensure_closed():
             if readsfile.is_open:
                 readsfile.close()
         atexit.register(ensure_closed)
 
-        ### NEW ###
-
 
     def partition(self, readsfile):
+        """
+        Partition sequencing reads into equally-sized 'chunks' for 
+        parallel processing. This treats all reads equally, in that 
+        they are grouped by contiguous occurrence within the given 
+        input file. This facilitates processing of unaligned reads, 
+        but it means that reads from the same chromosome will not be 
+        processed together. This can be overridden if that's desired.
+        
+        Parameters
+        ----------
+        readsfile
+
+        Returns
+        -------
+
+        """
         return itertools.groupby(enumerate(readsfile),
                                  key=lambda (i, r): i // self.chunksize)
 
@@ -276,7 +295,8 @@ class ParaReadProcessor(object):
             # If permitting unaligned input, set chroms to an indicator.
             # At the moment, such a case won't parallelize,
             # but this could change if someone wants to implement it.
-            chroms = self.ALL_CHROMOSOMES
+            raise MissingHeaderException(
+                    filepath=PARA_READ_FILES[READS_FILE_KEY].filename)
         if len(chroms) == 0:
             # This is the case in which filtration left us with no chroms.
             print("No chromosomes retrieved from '{}' header when "

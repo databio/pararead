@@ -4,12 +4,11 @@ import os
 import pytest
 import pysam
 
+from tests import NAME_ALIGNED_FILE, NAME_UNALIGNED_FILE
+
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
-
-NAME_ALIGNED_FILE = "meth_spikein_k1_k3.bam"
-NAME_UNALIGNED_FILE = "rrbs1.bam"
 
 
 @pytest.fixture(scope="session")
