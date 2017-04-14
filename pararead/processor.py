@@ -35,6 +35,16 @@ and thus will not cause map to fail.
 PARA_READ_FILES = {}
 READS_FILE_KEY = "readsfile"
 
+ReadsFileMaker = namedtuple("ReadsFileMaker", field_names=["ctor", "kwargs"])
+
+# TODO: pysam docs say 'u' for uncompressed BAM.
+READS_FILE_MAKER = {
+    "SAM": ReadsFileMaker(pysam.AlignmentFile, {"mode": 'r'}),
+    "BAM": ReadsFileMaker(pysam.AlignmentFile, {"mode": 'rb'}),
+    "CRAM": ReadsFileMaker(pysam.AlignmentFile, {"mode": 'rc'}),
+    "VCF": ReadsFileMaker(pysam.VariantFile, {}),
+    "BCF": ReadsFileMaker(pysam.VariantFile, {})
+}
 
 
 class ParaReadProcessor(object):
@@ -45,15 +55,6 @@ class ParaReadProcessor(object):
     """
 
     __metaclass__ = abc.ABCMeta
-
-    # TODO: pysam docs say 'u' for uncompressed BAM.
-    FILE_BY_TYPE = {
-            "SAM": ReadsFileMaker(pysam.AlignmentFile, ('r', )),
-            "BAM": ReadsFileMaker(pysam.AlignmentFile, ('rb', )),
-            "CRAM": ReadsFileMaker(pysam.AlignmentFile, ('rc', )),
-            "VCF": ReadsFileMaker(pysam.VariantFile, ()),
-            "BCF": ReadsFileMaker(pysam.VariantFile, ())
-    }
 
 
     def __init__(self,
@@ -203,7 +204,7 @@ class ParaReadProcessor(object):
                             "{}.{}".format(chrom, self.output_type))
 
 
-    def register_files(self, *file_builder_args, **file_builder_kwargs):
+    def register_files(self, **file_builder_kwargs):
         """
         Add to module map any large/unpicklable variables required by __call__.
         
@@ -222,15 +223,17 @@ class ParaReadProcessor(object):
         filetype = extension[1:].upper()
 
         try:
-            reads_file_maker = self.FILE_BY_TYPE[filetype]
+            reads_file_maker = READS_FILE_MAKER[filetype]
         except KeyError:
             raise FileTypeException(got=self.path_reads_file,
-                                    known=self.FILE_BY_TYPE.keys())
+                                    known=READS_FILE_MAKER.keys())
 
         # Here, check_sq is necessary so that ParaRead can process
         # unaligned files, which is occasionally desirable.
-        builder, args = reads_file_maker
-        readsfile = builder(*(args + file_builder_args), **file_builder_kwargs)
+        builder = reads_file_maker.ctor
+        kwargs = file_builder_kwargs
+        kwargs.update(reads_file_maker.kwargs)
+        readsfile = builder(self.path_reads_file, **kwargs)
         PARA_READ_FILES[READS_FILE_KEY] = readsfile
 
         def ensure_closed():
@@ -366,7 +369,3 @@ class ParaReadProcessor(object):
                     with open(self._tempf(chrom), 'r') as tmpf:
                         for line in tmpf:
                             outfile.write(line)
-
-
-
-ReadsFileMaker = namedtuple("ReadsFileMaker", field_names=["ctor", "args"])
