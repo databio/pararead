@@ -9,6 +9,7 @@ then object.run(), object.combine().
 
 import abc
 import atexit
+import itertools
 import multiprocessing
 import os
 import shutil
@@ -49,11 +50,11 @@ class ParaReadProcessor(object):
 
 
     def __init__(self,
-                 path_reads_file, cores,
+                 path_reads_file, cores, chunksize,
                  outfile=None, action=None,
                  temp_folder_parent_path=None,
                  limit=None, allow_unaligned=True,
-                 require_new_outfile=False):
+                 require_new_outfile=False, output_type="txt"):
         """
         Regardless of subclass behavior, there is a
         set of fields that an instance should have.
@@ -64,6 +65,8 @@ class ParaReadProcessor(object):
             Data location (aligned BAM/SAM file).
         cores : int | str
             Number of processors to use.
+        chunksize : int
+            Number of reads per processing chunk.
         outfile : str, optional
             Path to location for output file. Either this
             or `action` is required.
@@ -80,6 +83,10 @@ class ParaReadProcessor(object):
             Whether to allow unaligned reads.
         require_new_outfile : bool
             Whether to raise an exception if output file already exists.
+        output_type : str, optional
+            Type of output file(s) generated. This is used by both 
+            intermediate files that are created and by the combine() 
+            step that creates final output.
 
         Raises
         ------
@@ -133,8 +140,10 @@ class ParaReadProcessor(object):
 
         # Behavior/execution parameters.
         self.cores = int(cores)
+        self.chunksize = chunksize
         self.limit = limit
         self.allow_unaligned = allow_unaligned
+        self.output_type = output_type
 
 
     @abc.abstractmethod
@@ -169,7 +178,8 @@ class ParaReadProcessor(object):
             Name for tempfile corresponding to given unit name.
 
         """
-        return os.path.join(self.temp_folder, "{}.txt".format(chrom))
+        return os.path.join(self.temp_folder,
+                            "{}.{}".format(chrom, self.output_type))
 
 
     def register_files(self):
@@ -199,8 +209,29 @@ class ParaReadProcessor(object):
 
         # Here, check_sq is necessary so that ParaRead can process
         # unaligned files, which is occasionally desirable.
-        PARA_READ_FILES[READS_FILE_KEY] = pysam.AlignmentFile(
+        readsfile = pysam.AlignmentFile(
                 self.path_reads_file, mode=mode, check_sq=False)
+
+        PARA_READ_FILES[READS_FILE_KEY] = readsfile
+
+        ### NEW ###
+
+        # TODO: override?
+        if self.partition == ParaReadProcessor.partition:
+            # Count reads to define partition function.
+            pass
+
+        def ensure_closed():
+            if readsfile.is_open:
+                readsfile.close()
+        atexit.register(ensure_closed)
+
+        ### NEW ###
+
+
+    def partition(self, readsfile):
+        return itertools.groupby(enumerate(readsfile),
+                                 key=lambda (i, r): i // self.chunksize)
 
 
     def run(self):
@@ -230,14 +261,13 @@ class ParaReadProcessor(object):
 
         # e.g. ['chr1', 'chr2', 'chr3', 'chr4']
         try:
-            chroms = chromosomes_from_bam_header(
-                readsfile=PARA_READ_FILES[READS_FILE_KEY], chroms=self.limit,
-                require_aligned=not self.allow_unaligned)
+            chunks = self.partition(PARA_READ_FILES[READS_FILE_KEY])
         except KeyError:
             print("No '{}' has been established; call "
                   "'register_files' before 'run'".format(READS_FILE_KEY))
             raise
 
+        """
         # Unaligned files lack any chrom header lines.
         # If so, we'll get back a null to disambiguate empty filter case if
         # we're permitting unaligned input. If requiring aligned input, the
@@ -253,6 +283,7 @@ class ParaReadProcessor(object):
                   "filtering to: {}".format(self.path_reads_file,
                                             self.limit))
             return []
+        """
 
         # Some implementors may have a strand mode attribute.
         # If so, log it here to avoid duplicate messaging, as it
@@ -262,25 +293,33 @@ class ParaReadProcessor(object):
         except AttributeError:
             pass
 
+        chunk_ids, chunks = zip(*chunks)
+
         # Process chromosomes in parallel
         if self.cores == 1:
-            results = map(self, chroms)
+            results = map(self, chunks)
         else:
             p = multiprocessing.Pool(self.cores)
             # The typical call to map fails to acknowledge KeyboardInterrupts.
             # This fix helps: http://stackoverflow.com/a/1408476/946721
-            results = p.map_async(self, chroms).get(9999999)
+            results = p.map_async(self, chunks).get(9999999)
 
+        result_by_chunk = zip(chunk_ids, results)
+        bad_chunks, good_chunks = \
+                partition_chunks_by_null_result(result_by_chunk)
+
+        """
         result_by_chromosome = zip(chroms, results)
         bad_chroms, good_chroms = \
-                partition_chromosomes_by_null_result(result_by_chromosome)
+                partition_chunks_by_null_result(result_by_chromosome)
+        """
 
-        print("Discarding {} chromosomes: {}".
-              format(len(bad_chroms), bad_chroms))
-        print("Keeping {} chromosomes: {}".
-              format(len(good_chroms), good_chroms))
+        print("Discarding {} chunk(s) of reads: {}".
+              format(len(bad_chunks), bad_chunks))
+        print("Keeping {} chunk(s) of reads: {}".
+              format(len(good_chunks), good_chunks))
 
-        return good_chroms
+        return good_chunks
 
 
     def combine(self, good_chromosomes):

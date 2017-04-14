@@ -12,7 +12,7 @@ __email__ = "vreuter@virginia.edu"
 
 
 __all__ = ["chromosomes_from_bam_header", "make_outfile_name",
-           "partition_chromosomes_by_null_result", "unbuffered_write"]
+           "partition_chunks_by_null_result", "unbuffered_write"]
 
 
 
@@ -49,7 +49,7 @@ def chromosomes_from_bam_header(readsfile, chroms=None, require_aligned=False):
 
 
 
-def partition_chromosomes_by_null_result(result_by_chromosome):
+def partition_chunks_by_null_result(result_by_chromosome):
     """
     Bin chromosome name by whether processing result was null.
 

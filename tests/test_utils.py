@@ -9,7 +9,7 @@ import pysam
 
 from pararead.exceptions import MissingHeaderException
 from pararead.utils import \
-    chromosomes_from_bam_header, partition_chromosomes_by_null_result
+    chromosomes_from_bam_header, partition_chunks_by_null_result
 from conftest import NAME_ALIGNED_FILE, NAME_UNALIGNED_FILE
 
 
@@ -84,7 +84,7 @@ class PartitionChromosomesByResultTests:
         expected_scraps = ["chr1", "chrY"]
         expected_keeps = ["chr2", "chrX"]
         scraps, keeps = \
-                partition_chromosomes_by_null_result(result_by_chromosome)
+                partition_chunks_by_null_result(result_by_chromosome)
         # Sort is for comparison in case of Mapping rather than Sequence.
         assert expected_scraps == scraps
         assert expected_keeps == keeps
