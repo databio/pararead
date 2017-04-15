@@ -65,7 +65,7 @@ def interleave_chromosomes_by_size(size_by_chromosome):
 
 
 
-def make_outfile_name(readsfile_basename, processing_action):
+def make_outfile_name(readsfile_basename, processing_action, output_type):
     """
     Create a name for an output file based on action performed.
 
@@ -77,6 +77,8 @@ def make_outfile_name(readsfile_basename, processing_action):
         Name for the processing action being performed by a
         parallel processor of sequencing reads (i.e., a class
         derived from ParaReadProcessor).
+    output_type : str
+        Type of output file for which name is being created.
 
     Returns
     -------
@@ -86,7 +88,8 @@ def make_outfile_name(readsfile_basename, processing_action):
         empty output filename is provided at creation.
 
     """
-    return "{}_{}.txt".format(readsfile_basename, processing_action)
+    return "{}_{}.{}".format(readsfile_basename,
+                             processing_action, output_type)
 
 
 

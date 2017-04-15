@@ -76,8 +76,8 @@ class ParaReadProcessor(object):
                  outfile=None, action=None,
                  temp_folder_parent_path=None,
                  limit=None, allow_unaligned=False,
-                 require_new_outfile=False,
-                 output_type="txt", by_chromosome=True):
+                 require_new_outfile=False, by_chromosome=True,
+                 intermediate_output_type="txt", output_type="txt"):
         """
         Regardless of subclass behavior, there is a
         set of fields that an instance should have.
@@ -104,13 +104,15 @@ class ParaReadProcessor(object):
             Whether to allow unaligned reads.
         require_new_outfile : bool
             Whether to raise an exception if output file already exists.
-        output_type : str, optional
-            Type of output file(s) generated. This is used by both 
-            intermediate files that are created and by the combine() 
-            step that creates final output.
         by_chromosome : bool, default True
             Whether to chunk reads on a per-chromosome basis, 
-            implicitly imposing requirement for aligned reads. 
+            implicitly imposing requirement for aligned reads.
+        intermediate_output_type : str, optional
+            Type of output file generated for each chunk of reads processed.
+        output_type : str, optional
+            Type of final output file generated. This is used by both 
+            intermediate files that are created and by the combine() 
+            step that creates final output.
 
         Raises
         ------
@@ -133,18 +135,20 @@ class ParaReadProcessor(object):
         if outfile:
             self.outfile = outfile
         elif action:
-            self.outfile = make_outfile_name(readsfile_basename, action)
+            self.outfile = make_outfile_name(
+                    readsfile_basename, action, output_type)
         else:
             raise ValueError("Either path to output file or "
                              "name of processing action is required.")
 
         if os.path.exists(self.outfile):
             if require_new_outfile:
-                raise ValueError(
-                        "Outfile already exists: '{}'".format(self.outfile))
+                raise ValueError("Output file already exists: '{}'".
+                                 format(self.outfile))
             else:
-                print("WARNING: Output file already exists and "
-                      "will be overwritten: '{}'".format(self.outfile))
+                _LOGGER.warn(
+                        "WARNING: Output file already exists "
+                        "and will be overwritten: '{}'".format(self.outfile))
 
         # Create temp folder that's deleted upon exit.
         if not temp_folder_parent_path:
@@ -170,7 +174,7 @@ class ParaReadProcessor(object):
         self.cores = int(cores)
         self.limit = limit
         self.require_aligned = by_chromosome or not allow_unaligned
-        self.output_type = output_type
+        self.intermediate_output_type = intermediate_output_type
         self.by_chromosome = by_chromosome
 
 
@@ -220,8 +224,9 @@ class ParaReadProcessor(object):
             Name for tempfile corresponding to given unit name.
 
         """
-        return os.path.join(self.temp_folder,
-                            "{}.{}".format(chrom, self.output_type))
+        return os.path.join(
+                self.temp_folder,
+                "{}.{}".format(chrom, self.intermediate_output_type))
 
 
     def register_files(self, **file_builder_kwargs):
@@ -238,7 +243,7 @@ class ParaReadProcessor(object):
             to match one of the supported file types.
         """
 
-        print("Using input file: '{}'", self.path_reads_file)
+        _LOGGER.info("Registering input file: '{}'", self.path_reads_file)
         _, extension = os.path.splitext(self.path_reads_file)
         filetype = extension[1:].upper()
 
@@ -289,8 +294,9 @@ class ParaReadProcessor(object):
         try:
             readsfile = PARA_READ_FILES[READS_FILE_KEY]
         except KeyError:
-            print("No '{}' has been established; call "
-                  "'register_files' before 'run'".format(READS_FILE_KEY))
+            _LOGGER.error(
+                    "No '{}' has been established; call 'register_files' "
+                    "before 'run'".format(READS_FILE_KEY))
             raise
 
         if not self.by_chromosome:
@@ -320,15 +326,15 @@ class ParaReadProcessor(object):
                 read_chunk_keys = \
                     interleave_chromosomes_by_size(size_by_chromosome.items())
 
-        print("Temporary files will be stored in: '{}'".
-              format(self.temp_folder))
-        print("Processing with {} cores...".format(self.cores))
+        _LOGGER.info("Temporary files will be stored in: '{}'".
+                     format(self.temp_folder))
+        _LOGGER.info("Processing with {} cores...".format(self.cores))
 
         # Some implementors may have a strand mode attribute.
         # If so, log it here to avoid duplicate messaging, as it
         # will remain constant across processed chunks (chromosomes).
         try:
-            print("STRAND MODE: {}".format(self.use_strand))
+            _LOGGER.info("STRAND MODE: {}".format(self.use_strand))
         except AttributeError:
             pass
 
@@ -352,10 +358,10 @@ class ParaReadProcessor(object):
         bad_chunks, good_chunks = \
                 partition_chunks_by_null_result(result_by_chunk)
 
-        print("Discarding {} chunk(s) of reads: {}".
-              format(len(bad_chunks), bad_chunks))
-        print("Keeping {} chunk(s) of reads: {}".
-              format(len(good_chunks), good_chunks))
+        _LOGGER.info("Discarding {} chunk(s) of reads: {}".
+                     format(len(bad_chunks), bad_chunks))
+        _LOGGER.info("Keeping {} chunk(s) of reads: {}".
+                     format(len(good_chunks), good_chunks))
 
         return good_chunks
 
@@ -441,11 +447,11 @@ class ParaReadProcessor(object):
         
         """
         if not good_chromosomes:
-            print("No successful chromosomes, so no combining.")
+            _LOGGER.warn("No successful chromosomes, so no combining.")
             return
         else:
-            print("Merging {} files into output file: '{}'".
-                  format(len(good_chromosomes), self.outfile))
+            _LOGGER.info("Merging {} files into output file: '{}'".
+                         format(len(good_chromosomes), self.outfile))
             with open(self.outfile, 'w') as outfile:
                 for chrom in good_chromosomes:
                     with open(self._tempf(chrom), 'r') as tmpf:

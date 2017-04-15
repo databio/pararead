@@ -26,11 +26,11 @@ class ParseBamHeaderTests:
     @pytest.mark.parametrize(
             argnames="chromosomes",
             argvalues=[{"K1_unmethylated"}, ("K3_methylated", )])
-    def test_filters_chromosomes(self, chromosomes, aligned_reads_file):
+    def test_keeps_specific_chromosomes(self, chromosomes, aligned_reads_file):
         """ Chromosome name-from-BAM-header fetch can filter. """
         observed = parse_bam_header(
                 readsfile=aligned_reads_file, chroms=chromosomes).keys()
-        assert list(chromosomes) == list(observed)
+        assert set(chromosomes) == set(observed)
 
 
     @pytest.mark.parametrize(
@@ -59,7 +59,7 @@ class ParseBamHeaderTests:
             else:
                 # Unaligned input returns null chromosome names collection;
                 # aligned input retains all no chromosomes with no filtration.
-                assert self.CHROMOSOME_NAMES == func().keys()
+                assert set(self.CHROMOSOME_NAMES) == set(func())
 
 
     @pytest.mark.parametrize(argnames="is_aligned", argvalues=[False, True])
