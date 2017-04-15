@@ -40,18 +40,23 @@ class ConstructorTests:
             IdentityProcessor(filepath, cores=num_cores)
 
 
-    def test_removes_tempfolder(self):
+
+class FilesystemTests:
+    """ Tests regarding interaction between Processor and filesystem """
+
+
+    def test_removes_tempfolder(self, identity_processor):
         """ Folder for temporary files should be removed. """
         pass
+
+    def test_closes_readsfile(self):
+        pass
+
 
 
 
 class FileRegistrationTests:
     """ Tests for registration of files with the ParaReadProcessor. """
-
-
-    def test_closes_readsfile(self):
-        pass
 
 
     def test_filetype_inference(self):
