@@ -22,9 +22,8 @@ __email__ = "vreuter@virginia.edu"
 
 
 class ConstructorTests:
-    """
-    Basic tests for ParaReadProcessor.
-    """
+    """ Basic tests for ParaReadProcessor. """
+
 
     def test_is_abstract(self):
         """ ParaReadProcessor must be extended. """
@@ -120,50 +119,9 @@ class CombinerTests:
     CHROM_NAMES = ["chr{}".format(i) for i in range(1, 23)] + \
                   ["chrX", "chrY", "chrM"]
     ARBITRARY_NAMES = ["random0", "arbitrary1", "contig2"]
+    COMBO_REQUEST_NAMES = CHROM_NAMES + ARBITRARY_NAMES
     CHUNK_NAMES = {CHROMOSOME_CHUNK_KEY: CHROM_NAMES,
                    ARBITRARY_CHUNK_KEY: ARBITRARY_NAMES}
-
-
-    @pytest.fixture(scope="function")
-    def extant_files(self, request, tmpdir):
-        """
-        Ensure the existence of certain files for a test case.
-        
-        Parameters
-        ----------
-        request : pytest.fixtures.SubRequest
-            Test case requesting the parameterization.
-        tmpdir : py._path.local.LocalPath
-            Path to temporary folder for the test case.
-
-        """
-
-        if "which_names" in request.fixturenames:
-            chunk_names_key = request.getfixturevalue("which_names")
-            chunk_names = self._names_from_key(chunk_names_key)
-        else:
-            chunk_names = self.CHROM_NAMES
-
-        if "filetype" in request.fixturenames:
-            extension = request.getfixturevalue("filetype")
-        else:
-            extension = "txt"
-
-        files = []
-        for chunk in chunk_names:
-            path_out_file = tmpdir.join("{}.{}".format(chunk, extension))
-            path_out_file.ensure(file=True)
-            files.append(path_out_file.strpath)
-        return files
-
-
-    @pytest.fixture(scope="function")
-    def fixed_tempfolder_processor(self, tmpdir, num_cores):
-        path_output_file = tmpdir.join("test-output.txt").strpath
-        processor = IdentityProcessor(
-            PATH_ALIGNED_FILE, cores=num_cores, outfile=path_output_file)
-        processor.temp_folder = tmpdir.strpath
-        return processor
 
 
     @pytest.mark.parametrize(
@@ -176,13 +134,11 @@ class CombinerTests:
         path_output_file = tmpdir.join("output.txt").strpath
         processor = IdentityProcessor(
                 PATH_ALIGNED_FILE, cores=num_cores, outfile=path_output_file)
-
         num_logs_before_combine = len(loglines(path_logs_file))
-
         processor.combine(good_chromosomes=[], strict=error_if_missing)
-        # The log record should be a warning, and there's only one.
         log_records = loglines(path_logs_file)
 
+        # The log record should be a warning, and there's only one.
         assert 1 == len(log_records) - num_logs_before_combine
         assert "WARN" in log_records[num_logs_before_combine]
 
@@ -193,9 +149,8 @@ class CombinerTests:
     def test_missing_output_files(
             self, which_names, extant_files, fixed_tempfolder_processor):
         """ Missing-output chunks be skipped or exceptional. """
-        combination_request_names = self.CHROM_NAMES + self.ARBITRARY_NAMES
         with pytest.raises(MissingOutputFileException):
-            fixed_tempfolder_processor.combine(combination_request_names, strict=True)
+            fixed_tempfolder_processor.combine(self.COMBO_REQUEST_NAMES, strict=True)
 
 
     @pytest.mark.parametrize(
@@ -204,9 +159,9 @@ class CombinerTests:
     def test_missing_output_files_non_strict_retval(
             self, which_names, extant_files,
             fixed_tempfolder_processor, path_logs_file):
-        combination_request_names = self.CHROM_NAMES + self.ARBITRARY_NAMES
+        """ Combiner returns just the paths that were used. """
         observed_combined_filepaths = fixed_tempfolder_processor.combine(
-                combination_request_names, strict=False)
+                self.COMBO_REQUEST_NAMES, strict=False)
         assert extant_files == observed_combined_filepaths
 
 
@@ -216,18 +171,17 @@ class CombinerTests:
     def test_missing_output_files_non_strict_messaging(
             self, which_names, extant_files,
             fixed_tempfolder_processor, path_logs_file):
-
-        combination_request_names = self.CHROM_NAMES + self.ARBITRARY_NAMES
+        """ If non-strict, combiner warns about requested-but-missing. """
 
         # Do the combine step and get the logged messages.
         num_logs_before_combine = len(loglines(path_logs_file))
         fixed_tempfolder_processor.combine(
-                combination_request_names, strict=False)
+                self.COMBO_REQUEST_NAMES, strict=False)
         logs_from_combine = loglines(path_logs_file)[num_logs_before_combine:]
 
         # As a control, check that we are in fact over-requesting in combine().
         num_extant_files = len(extant_files)
-        num_requested_files = len(combination_request_names)
+        num_requested_files = len(self.COMBO_REQUEST_NAMES)
         assert num_extant_files < num_requested_files
 
         # The control makes this assertion meaningful.
@@ -247,6 +201,7 @@ class CombinerTests:
         argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
     def test_different_format(self, tmpdir, filetype, combined_output_type,
                               which_names, extant_files, num_cores):
+        """ File content is actually combined, and formats can differ. """
 
         # Manual creation of the processor here to control output type.
         path_output_file = tmpdir.join(
@@ -256,16 +211,19 @@ class CombinerTests:
                 outfile=path_output_file, intermediate_output_type=filetype)
         processor.temp_folder = tmpdir.strpath
 
+        # Write to the dummy output file for each chunk.
         expected_lines = {fp: "file{}: {}\n".format(i, fp)
                           for i, fp in enumerate(extant_files)}
         for fp, line in expected_lines.items():
             with open(fp, 'w') as f:
                 f.write(line)
 
+        # For control, enforce that combined output doesn't already exist.
         assert not os.path.exists(path_output_file)
-
         processor.combine(self.CHUNK_NAMES[which_names], strict=True)
         assert os.path.isfile(path_output_file)
+
+        # Check that output was combined accurately.
         with open(path_output_file, 'r') as combined:
             observed_lines = combined.readlines()
         assert set(expected_lines.values()) == set(observed_lines)
@@ -278,8 +236,13 @@ class CombinerTests:
             self, which_names, extant_files, 
             fixed_tempfolder_processor, path_logs_file):
         """ Combination applies only to chunks of interest. """
+
+        # Tell the processor that only certain chunks are of interest.
         extant_read_chunks = self.CHUNK_NAMES[which_names]
         fixed_tempfolder_processor.limit = extant_read_chunks
+
+        # Request an uninteresting chunk in the combine() step.
+        # This is erroneous because it would not have been processed.
         bad_chunk_name = "not-a-chunk"
         with pytest.raises(IllegalChunkException) as error:
             fixed_tempfolder_processor.combine(
@@ -287,7 +250,100 @@ class CombinerTests:
         assert bad_chunk_name in error.value.message
 
 
+    @pytest.fixture(scope="function")
+    def extant_files(self, request, tmpdir):
+        """
+        Ensure the existence of certain files for a test case.
+
+        The processor's combine step aggregates results from individually 
+        and independently processed reads chunks. Thus, it needs a file to 
+        exist for each chunk that it attempts to include in the final 
+        aggregated output. This creates empty files named according to 
+        the components that a test case specifies it's interested in combining.
+
+        Parameters
+        ----------
+        request : pytest.fixtures.SubRequest
+            Test case requesting the parameterization.
+        tmpdir : py._path.local.LocalPath
+            Path to temporary folder for the test case.
+
+        """
+
+        # The test case may be parameterized with respect to chunk names.
+        if "which_names" in request.fixturenames:
+            chunk_names_key = request.getfixturevalue("which_names")
+            chunk_names = self._names_from_key(chunk_names_key)
+        else:
+            chunk_names = self.CHROM_NAMES
+
+        # The test case may also be parameterized with respect to file type.
+        if "filetype" in request.fixturenames:
+            extension = request.getfixturevalue("filetype")
+        else:
+            extension = "txt"
+
+        # "Touch" each file, storing the corresponding path to 
+        # communicate back to the requesting test case.
+        files = []
+        for chunk in chunk_names:
+            path_out_file = tmpdir.join("{}.{}".format(chunk, extension))
+            path_out_file.ensure(file=True)
+            files.append(path_out_file.strpath)
+        return files
+
+
+    @pytest.fixture(scope="function")
+    def fixed_tempfolder_processor(self, tmpdir, num_cores):
+        """
+        Create processor with known temporary folder.
+
+        Provide some basic required values to the constructor, and critically, 
+        fix the temporary folder to the location into which the individual 
+        reads chunk files were ensured to exist. The processor constructor 
+        provides tempfolder parent as a parameter, but then it creates a 
+        temporary folder within that, used to search for the individual 
+        chunk output files. Those files have already been created in a test 
+        temp folder, though, so the processor needs to know about that. 
+        Cleanup of both locations is handled. The processor registers its 
+        own temporary folder for removal while pytest cleans up its folder.
+
+        Parameters
+        ----------
+        tmpdir : py._path.local.LocalPath
+            Path to where chunks' dummy output files have been placed.
+        num_cores : int
+            Number of cores to use for the test case, parameterized.
+
+        Returns
+        -------
+        pararead.ParaReadProcessor
+            New processor instance, with updated temp folder knowledge.
+
+        """
+        path_output_file = tmpdir.join("test-output.txt").strpath
+        processor = IdentityProcessor(
+            PATH_ALIGNED_FILE, cores=num_cores, outfile=path_output_file)
+        processor.temp_folder = tmpdir.strpath
+        return processor
+
+
     def _names_from_key(self, names_key):
+        """
+        Get chunk names based on an argument to a test case parameter.
+        
+        Parameters
+        ----------
+        names_key : str
+            Argument to test case parameter indicating which set of chunk 
+            identifiers will have files created.
+
+        Returns
+        -------
+        Iterable of str
+            Collection of chunk identifiers for which files will exist.
+
+        """
         try:
             return self.CHUNK_NAMES[names_key]
         except KeyError:
