@@ -51,12 +51,17 @@ class FileRegistrationTests:
             argnames="require_aligned", argvalues=[False, True])
     @pytest.mark.parametrize(
             argnames="pysam_kwargs", argvalues=[{}, {"check_sq": False}])
-    def test_adds_pysam_kwargs(self, require_aligned, pysam_kwargs):
+    def test_adds_pysam_kwargs(self, require_aligned,
+                               pysam_kwargs, remove_reads_file):
         """ Unaligned input BAM needs check_sq=False to be created. """
 
+        # Note that remove_reads_file is here to clear the module-scoped map.
+
+        # Explicitly set by_chromosome=False to prevent it from
+        # controlling the requirement regarding aligned reads.
         processor = IdentityProcessor(
                 path_reads_file=PATH_UNALIGNED_FILE, action="test",
-                allow_unaligned=not require_aligned)
+                allow_unaligned=not require_aligned, by_chromosome=False)
 
         if require_aligned and not pysam_kwargs:
             with pytest.raises(ValueError):
@@ -76,9 +81,11 @@ class FileRegistrationTests:
 
         # Note that remove_reads_file is here to clear the module-scoped map.
 
+        # Explicitly set by_chromosome=False to prevent it from
+        # controlling the requirement regarding aligned reads.
         processor = IdentityProcessor(
                 path_reads_file=path_reads_file, action="test",
-                allow_unaligned=not require_aligned)
+                allow_unaligned=not require_aligned, by_chromosome=False)
 
         # The pysam readsfile shouldn't exist before register_files().
         with pytest.raises(ExecutionOrderException):
