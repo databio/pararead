@@ -18,7 +18,7 @@ import tempfile
 
 import pysam
 
-from .exceptions import ExecutionOrderException
+from .exceptions import CommandOrderException, MissingOutputFileException
 from .utils import *
 
 
@@ -165,10 +165,25 @@ class ParaReadProcessor(object):
 
     @staticmethod
     def readsfile():
+        """
+        
+        Returns
+        -------
+        pysam.AlignmentFile | pysam.VariantFile
+            Instance of the reads file abstraction appropriate for the 
+            given type of input data (e.g., BAM or VCF).
+
+        Raises
+        ------
+        CommandOrderException
+            If a command prerequisite for a parallel reads processor 
+            operation has not yet been performed.
+
+        """
         try:
             return PARA_READ_FILES[READS_FILE_KEY]
         except KeyError:
-            raise ExecutionOrderException(
+            raise CommandOrderException(
                 "No {} established; has {} been called?".format(
                 READS_FILE_KEY, ParaReadProcessor.register_files.__name__))
 
@@ -430,7 +445,7 @@ class ParaReadProcessor(object):
         return readsfile.fetch(reference=reference, multiple_iterators=True)
 
 
-    def combine(self, good_chromosomes):
+    def combine(self, good_chromosomes, strict=False):
         """
         Aggregate output from independent read chunks into single output file.
         
@@ -439,15 +454,37 @@ class ParaReadProcessor(object):
         good_chromosomes : Iterable of str
             Identifier (e.g., chromosome) for each chunk of reads processed.
         
+        Raises
+        ------
+        IOError
+            If given a name of a reads chunk (e.g., chromosome) 
+            for which an output file does not exist.
+        MissingOutputFileException
+            If executing in strict mode, and there's a reads chunk key for 
+            which the derived filepath does not exist.
+        
         """
+
         if not good_chromosomes:
             _LOGGER.warn("No successful chromosomes, so no combining.")
             return
-        else:
-            _LOGGER.info("Merging {} files into output file: '{}'".
-                         format(len(good_chromosomes), self.outfile))
-            with open(self.outfile, 'w') as outfile:
-                for chrom in good_chromosomes:
-                    with open(self._tempf(chrom), 'r') as tmpf:
-                        for line in tmpf:
-                            outfile.write(line)
+
+        _LOGGER.info("Merging {} files into output file: '{}'".
+                     format(len(good_chromosomes), self.outfile))
+
+        with open(self.outfile, 'w') as outfile:
+            for chrom in good_chromosomes:
+                reads_chunk_output = self._tempf(chrom)
+                if not os.path.exists(reads_chunk_output):
+                    if strict:
+                        raise MissingOutputFileException(
+                                reads_chunk_key=chrom,
+                                filepath=reads_chunk_output)
+                    else:
+                        _LOGGER.warn(
+                                "Missing output file for reads chunk '%s', "
+                                "skipping: '%s'", chrom, reads_chunk_output)
+                        continue
+                with open(reads_chunk_output, 'r') as tmpf:
+                    for line in tmpf:
+                        outfile.write(line)

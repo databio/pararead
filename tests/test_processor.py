@@ -2,12 +2,13 @@
 
 import pytest
 from pysam import AlignmentFile
-from pararead.exceptions import ExecutionOrderException
+
+from pararead.exceptions import CommandOrderException
 from pararead.processor import ParaReadProcessor
 from tests import \
         NUM_CORES_DEFAULT, NUM_READS_BY_FILE, \
         PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
-from tests.helpers import IdentityProcessor
+from tests.helpers import IdentityProcessor, loglines
 
 
 __author__ = "Vince Reuter"
@@ -74,7 +75,9 @@ class FileRegistrationTests:
     @pytest.mark.parametrize(
         argnames=["path_reads_file", "require_aligned"],
         argvalues=[(PATH_ALIGNED_FILE, False), (PATH_ALIGNED_FILE, True),
-                   (PATH_UNALIGNED_FILE, False)])
+                   (PATH_UNALIGNED_FILE, False)],
+        ids=lambda (rf_path, req_align):
+                    "{}; req_align={}".format(rf_path, req_align))
     def test_creates_fresh_reads_file(self, path_reads_file,
                                       require_aligned, remove_reads_file):
         """ Reads file pysam object is created by register_files(). """
@@ -88,7 +91,7 @@ class FileRegistrationTests:
                 allow_unaligned=not require_aligned, by_chromosome=False)
 
         # The pysam readsfile shouldn't exist before register_files().
-        with pytest.raises(ExecutionOrderException):
+        with pytest.raises(CommandOrderException):
             processor.readsfile()
 
         # Now do the registration, creating the pysam readsfile instance.
@@ -99,6 +102,79 @@ class FileRegistrationTests:
         assert isinstance(readsfile, AlignmentFile)
         num_reads = sum(1 for _ in readsfile)
         assert NUM_READS_BY_FILE[path_reads_file] == num_reads
+
+
+
+class CombinerTests:
+    """ Processor provides function to combine intermediate results. """
+
+    CHROMOSOME_CHUNK_KEY = "chromosome"
+    ARBITRARY_CHUNK_KEY = "arbitrary"
+    CHROM_NAMES = ["chr{}".format(i) for i in range(1, 23)] + \
+                  ["chrX", "chrY", "chrM"]
+    ARBITRARY_NAMES = ["random0", "arbitrary1", "contig2"]
+    CHUNK_NAMES = {CHROMOSOME_CHUNK_KEY: CHROM_NAMES,
+                   ARBITRARY_CHUNK_KEY: ARBITRARY_NAMES}
+
+
+    @pytest.fixture(scope="function")
+    def touch_files(self, request):
+        if "which_names" in request.fixturenames:
+            chunk_names_key = request.getfixturevalue("which_names")
+            chunk_names = self.CHUNK_NAMES[chunk_names_key]
+        else:
+            chunk_names = self.CHROM_NAMES
+
+
+    @pytest.mark.parametrize(
+            argnames="error_if_missing", argvalues=[False, True])
+    def test_nothing_to_combine(self, tmpdir, path_logs_file,
+                                num_cores, error_if_missing):
+        """ Complete lack of output is sufficient to warrant a warning. """
+
+        # Create the processor and do combine() step.
+        path_output_file = tmpdir.join("output.txt").strpath
+        processor = IdentityProcessor(
+                PATH_ALIGNED_FILE, cores=num_cores, outfile=path_output_file)
+
+        num_logs_before_combine = len(loglines(path_logs_file))
+
+        processor.combine(good_chromosomes=[], strict=error_if_missing)
+        # The log record should be a warning, and there's only one.
+        log_records = loglines(path_logs_file)
+
+        assert 1 == len(log_records) - num_logs_before_combine
+        assert "WARN" in log_records[num_logs_before_combine]
+
+
+    @pytest.mark.parametrize(argnames="strict", argvalues=[False, True])
+    def test_missing_output_file(self, strict, num_cores):
+        """  """
+
+        if strict:
+            pass
+        else:
+            pass
+
+
+    def test_ignores_extant_unspecified(self, num_cores):
+        """ Files in tempfolder not requested for combination are ignored. """
+        pass
+
+
+    def combine_ordinary_textfiles(self, num_cores):
+        """ The processor combines files for which there are  """
+        pass
+
+
+    def test_different_format(self, num_cores):
+        pass
+
+
+
+class IntegrationTests:
+    """ A couple of sample end-to-end tests through a simple processor. """
+    pass
 
 
 
@@ -118,7 +194,7 @@ class FilesystemTests:
 
 
 
-class ExecutionTests:
+class ArbitraryPartitionTests:
     """ Tests for processor's run() method. """
 
 
@@ -135,9 +211,3 @@ class ExecutionTests:
     @pytest.mark.skip("Not implemented")
     def test_fixed_chunksize(self):
         pass
-
-
-
-class CombinerTests:
-    """ Processor provides function to combine intermediate results. """
-    pass

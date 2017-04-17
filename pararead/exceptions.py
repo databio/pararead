@@ -5,10 +5,10 @@ __email__ = "vreuter@virginia.edu"
 
 
 
-class ExecutionOrderException(Exception):
+class CommandOrderException(Exception):
     """ The parallel reads processor needs certain method call sequence. """
     def __init__(self, reason=""):
-        super(ExecutionOrderException, self).__init__(reason)
+        super(CommandOrderException, self).__init__(reason)
 
 
 
@@ -37,4 +37,21 @@ class MissingHeaderException(Exception):
         reason = "No chromosomes in header; this file is " \
                  "empty or unaligned. Aligned reads are required{}".\
                  format(": '{}'".format(filepath) if filepath else ".")
+        super(MissingHeaderException, self).__init__(reason)
+
+
+
+class MissingOutputFileException(Exception):
+    """
+    Filepath for particular chunk output doesn't exist.
+    
+    Based on its internal settings, the processor's combine() step derives 
+    a filepath to the output file for each reads chunk indicated by key 
+    in the argument that it receives. If one of those is missing, it may 
+    be considered an exceptional case.
+    
+    """
+    def __init__(self, reads_chunk_key, filepath):
+        reason = "Path to output file for reads chunk '{}' " \
+                 "does not exist: '{}'".format(reads_chunk_key, filepath)
         super(MissingHeaderException, self).__init__(reason)

@@ -3,14 +3,23 @@
 import pytest
 import pysam
 
-from pararead import processor
+from pararead import processor, setup_pararead_logger
+from pararead.logs import DEV_LOGGING_FMT
 from tests import \
-    IS_ALIGNED_PARAM_NAME, PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
+    IS_ALIGNED_PARAM_NAME, NAME_TEST_LOGFILE, \
+    PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
 from tests.helpers import IdentityProcessor, ReadsfileWrapper
 
 
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
+
+
+
+def pytest_generate_tests(metafunc):
+    """ Additional runtime parameterization of test cases. """
+    if "num_cores" in metafunc.fixturenames:
+        metafunc.parametrize(argnames="num_cores", argvalues=[1, 2, 4])
 
 
 
@@ -41,13 +50,6 @@ def unaligned_reads_file():
 
     """
     return ReadsfileWrapper(PATH_UNALIGNED_FILE)
-
-
-
-@pytest.fixture(scope="function", params=[1, 2, 4])
-def num_cores(request):
-    """ For quick tests, validate across several cores count values. """
-    return request.param
 
 
 
@@ -88,3 +90,18 @@ def remove_reads_file(request):
     def clear_pararead():
         processor.PARA_READ_FILES = {}
     request.addfinalizer(clear_pararead)
+
+
+
+@pytest.fixture(scope="function")
+def path_logs_file(request, tmpdir):
+
+    logfile = tmpdir.join(NAME_TEST_LOGFILE).strpath
+    logger = setup_pararead_logger(
+            logfile=logfile, stream_format=DEV_LOGGING_FMT)
+
+    def clear_handlers():
+        logger.handlers = []
+
+    request.addfinalizer(clear_handlers)
+    return logfile
