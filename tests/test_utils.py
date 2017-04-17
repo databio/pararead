@@ -4,10 +4,12 @@ from functools import partial
 import itertools
 
 import pytest
+from pysam import AlignmentFile, VariantFile
 
-from pararead.exceptions import MissingHeaderException
+from pararead.exceptions import FileTypeException, MissingHeaderException
 from pararead.utils import \
-    parse_bam_header, partition_chunks_by_null_result
+    create_reads_builder, parse_bam_header, \
+    partition_chunks_by_null_result,  READS_FILE_MAKER
 from tests import PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
 from tests.helpers import ReadsfileWrapper
 
@@ -15,6 +17,39 @@ from tests.helpers import ReadsfileWrapper
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
+
+
+class CreateReadsBuilderTests:
+    """ Tests for creation of reads file factory builder. """
+
+
+    @pytest.mark.parametrize(
+        argnames="unsupported_filetype",
+        argvalues=list(itertools.chain(*[
+            (ft.lower(), ft.upper()) for ft in ["BED", "TXT", "GTF", "TSV"]])))
+    def test_filetype_exception(self, unsupported_filetype):
+        """ Unsupported input filetype is exceptional. """
+        filename = "testfile.{}".format(unsupported_filetype)
+        with pytest.raises(FileTypeException):
+            create_reads_builder(filename)
+
+
+    @pytest.mark.parametrize(
+        argnames="filetype",
+        argvalues=list(itertools.chain(*[(ft.lower(), ft.upper()) for ft
+                                         in READS_FILE_MAKER.keys()])))
+    def test_infers_filetype(self, filetype):
+        """ We infer pysam type from file extension. """
+        ft_key = filetype.upper()
+        filename = "testfile.{}".format(filetype)
+        readsfile_builder = create_reads_builder(filename)
+        inferred_constructor = readsfile_builder.ctor
+        if ft_key in ["BAM", "SAM", "CRAM"]:
+            assert AlignmentFile == inferred_constructor
+        elif ft_key in ["BCF", "VCF"]:
+            assert VariantFile == inferred_constructor
+        else:
+            pytest.fail("Add test case for filetype: '{}'").format(filetype)
 
 
 class ParseBamHeaderTests:
@@ -27,7 +62,7 @@ class ParseBamHeaderTests:
             argnames="chromosomes",
             argvalues=[{"K1_unmethylated"}, ("K3_methylated", )])
     def test_keeps_specific_chromosomes(self, chromosomes, aligned_reads_file):
-        """ Chromosome name-from-BAM-header fetch can filter. """
+        """ Chromosome name-from-BAM-header fetch grabs requested chroms. """
         observed = parse_bam_header(
                 readsfile=aligned_reads_file, chroms=chromosomes).keys()
         assert set(chromosomes) == set(observed)

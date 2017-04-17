@@ -1,23 +1,76 @@
 """ Parallel reads processor utilities. """
 
+from collections import namedtuple
 import itertools
 import operator as op
+import os
 import sys
 if sys.version_info < (3, 3):
     from collections import Mapping, Sequence
 else:
     from collections.abc import Mapping, Sequence
-from .exceptions import MissingHeaderException
+from pysam import AlignmentFile, VariantFile
+from .exceptions import FileTypeException, MissingHeaderException
 
 
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-__all__ = ["interleave_chromosomes_by_size",
+__all__ = ["create_reads_builder",
+           "interleave_chromosomes_by_size",
            "make_outfile_name", "parse_bam_header",
            "partition_chunks_by_null_result",
            "pending_feature", "unbuffered_write"]
+
+
+ReadsFileMaker = namedtuple("ReadsFileMaker", field_names=["ctor", "kwargs"])
+
+# TODO: pysam docs say 'u' for uncompressed BAM.
+READS_FILE_MAKER = {
+    "SAM": ReadsFileMaker(AlignmentFile, {"mode": 'r'}),
+    "BAM": ReadsFileMaker(AlignmentFile, {"mode": 'rb'}),
+    "CRAM": ReadsFileMaker(AlignmentFile, {"mode": 'rc'}),
+    "VCF": ReadsFileMaker(VariantFile, {"mode": 'r'}),
+    "BCF": ReadsFileMaker(VariantFile, {"mode": 'rb'})
+}
+
+
+
+def create_reads_builder(path_reads_file):
+    """
+    Create the factory for a reads file.
+    
+    This is called when the parallel reads processor registers file(s), 
+    inferring from the extension the type of file to create and supplying  
+    the reads file factory, allowing additional keyword arguments to be 
+    passed to the constructor before the reads file is created.
+    
+    Parameters
+    ----------
+    path_reads_file : str
+        Path to file with sequencing reads data.
+
+    Returns
+    -------
+    ReadsFileMaker
+        A namedtuple providing the proper pysam reads file constructor and 
+        just the most basic keyword argument(s), allowing the caller to add 
+        more specific keyword arguments before creating a reads file instance.
+
+    Raises
+    FileTypeException
+        If the given filepath appears to be of an unsupported type.
+
+    """
+    _, extension = os.path.splitext(path_reads_file)
+    filetype = extension[1:].upper()
+    try:
+        reads_file_maker = READS_FILE_MAKER[filetype]
+    except KeyError:
+        raise FileTypeException(got=path_reads_file,
+                                known=READS_FILE_MAKER.keys())
+    return reads_file_maker
 
 
 

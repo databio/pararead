@@ -5,6 +5,13 @@ __email__ = "vreuter@virginia.edu"
 
 
 
+class ExecutionOrderException(Exception):
+    """ The parallel reads processor needs certain method call sequence. """
+    def __init__(self, reason=""):
+        super(ExecutionOrderException, self).__init__(reason)
+
+
+
 class FileTypeException(Exception):
     """ Extension not matching any of those of supported file types. """
 

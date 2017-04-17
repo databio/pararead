@@ -9,7 +9,6 @@ then object.run(), object.combine().
 
 import abc
 import atexit
-from collections import namedtuple
 import itertools
 import logging
 import multiprocessing
@@ -19,7 +18,7 @@ import tempfile
 
 import pysam
 
-from .exceptions import FileTypeException
+from .exceptions import ExecutionOrderException
 from .utils import *
 
 
@@ -38,19 +37,8 @@ and thus will not cause map to fail.
 """
 PARA_READ_FILES = {}
 READS_FILE_KEY = "readsfile"
-
-ReadsFileMaker = namedtuple("ReadsFileMaker", field_names=["ctor", "kwargs"])
-
-# TODO: pysam docs say 'u' for uncompressed BAM.
-READS_FILE_MAKER = {
-    "SAM": ReadsFileMaker(pysam.AlignmentFile, {"mode": 'r'}),
-    "BAM": ReadsFileMaker(pysam.AlignmentFile, {"mode": 'rb'}),
-    "CRAM": ReadsFileMaker(pysam.AlignmentFile, {"mode": 'rc'}),
-    "VCF": ReadsFileMaker(pysam.VariantFile, {}),
-    "BCF": ReadsFileMaker(pysam.VariantFile, {})
-}
-
 CHUNKS_PER_CORE = 5
+CORES_PARAM_NAME = "cores"
 
 
 
@@ -122,10 +110,6 @@ class ParaReadProcessor(object):
 
         """
 
-        if allow_unaligned:
-            raise NotImplementedError(
-                    "Currently, just aligned reads are supported.")
-
         # Initial path setup and filetype handling.
         name_reads_file = os.path.basename(path_reads_file)
         readsfile_basename, _ = os.path.splitext(name_reads_file)
@@ -158,16 +142,17 @@ class ParaReadProcessor(object):
         prefix = "tmp_{}_".format(readsfile_basename)
         if action:
             prefix += "{}_".format(action)
-        self.temp_folder = tempfile.mkdtemp(
+        tempfolder = tempfile.mkdtemp(
                 prefix=prefix, dir=temp_folder_parent_path)
+        self.temp_folder = tempfolder
 
         # Add a couple lines so that tests can execute quietly.
         # Tests handle cleanup separately, so if this existence
         # check is omitted, exceptions can be squelched, but their
         # messages can still appear due to rmtree()'s use of sys.exc_info().
         def clean():
-            if os.path.exists(self.temp_folder):
-                shutil.rmtree(self.temp_folder)
+            if os.path.exists(tempfolder):
+                shutil.rmtree(tempfolder)
         atexit.register(clean)
 
         # Behavior/execution parameters.
@@ -176,6 +161,16 @@ class ParaReadProcessor(object):
         self.require_aligned = by_chromosome or not allow_unaligned
         self.intermediate_output_type = intermediate_output_type
         self.by_chromosome = by_chromosome
+
+
+    @staticmethod
+    def readsfile():
+        try:
+            return PARA_READ_FILES[READS_FILE_KEY]
+        except KeyError:
+            raise ExecutionOrderException(
+                "No {} established; has {} been called?".format(
+                READS_FILE_KEY, ParaReadProcessor.register_files.__name__))
 
 
     @abc.abstractmethod
@@ -233,8 +228,10 @@ class ParaReadProcessor(object):
         """
         Add to module map any large/unpicklable variables required by __call__.
         
-        This can be overridden by the child class, but if so you should call
-        this version as well, to populate the mapping with needed file(s).
+        Warnings
+        --------
+        A subclass overriding this method should be sure to register the 
+        file passed to the constructor, or to make a call to this method.
         
         Raises
         ------
@@ -244,20 +241,17 @@ class ParaReadProcessor(object):
         """
 
         _LOGGER.info("Registering input file: '{}'", self.path_reads_file)
-        _, extension = os.path.splitext(self.path_reads_file)
-        filetype = extension[1:].upper()
-
-        try:
-            reads_file_maker = READS_FILE_MAKER[filetype]
-        except KeyError:
-            raise FileTypeException(got=self.path_reads_file,
-                                    known=READS_FILE_MAKER.keys())
+        reads_file_maker = create_reads_builder(self.path_reads_file)
 
         # Here, check_sq is necessary so that ParaRead can process
         # unaligned files, which is occasionally desirable.
         builder = reads_file_maker.ctor
         kwargs = file_builder_kwargs
         kwargs.update(reads_file_maker.kwargs)
+
+        if not self.require_aligned:
+            kwargs['check_sq'] = False
+
         readsfile = builder(self.path_reads_file, **kwargs)
         PARA_READ_FILES[READS_FILE_KEY] = readsfile
 

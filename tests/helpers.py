@@ -2,6 +2,8 @@
 
 from pysam import AlignmentFile
 from pararead import ParaReadProcessor
+from pararead.processor import CORES_PARAM_NAME
+from tests import NUM_CORES_DEFAULT
 
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
@@ -11,6 +13,11 @@ __email__ = "vreuter@virginia.edu"
 class IdentityProcessor(ParaReadProcessor):
     """ Essentially a mock for test cases, simply echoing input. """
 
+
+    def __init__(self, *args, **kwargs):
+        if CORES_PARAM_NAME not in kwargs:
+            kwargs[CORES_PARAM_NAME] = NUM_CORES_DEFAULT
+        super(IdentityProcessor, self).__init__(*args, **kwargs)
 
     def __call__(self, chunk, index):
         """
