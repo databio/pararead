@@ -54,4 +54,4 @@ class MissingOutputFileException(Exception):
     def __init__(self, reads_chunk_key, filepath):
         reason = "Path to output file for reads chunk '{}' " \
                  "does not exist: '{}'".format(reads_chunk_key, filepath)
-        super(MissingHeaderException, self).__init__(reason)
+        super(MissingOutputFileException, self).__init__(reason)

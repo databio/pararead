@@ -454,11 +454,13 @@ class ParaReadProcessor(object):
         good_chromosomes : Iterable of str
             Identifier (e.g., chromosome) for each chunk of reads processed.
         
+        Returns
+        -------
+        Iterable of str
+            Path to each file successfully combined.
+        
         Raises
         ------
-        IOError
-            If given a name of a reads chunk (e.g., chromosome) 
-            for which an output file does not exist.
         MissingOutputFileException
             If executing in strict mode, and there's a reads chunk key for 
             which the derived filepath does not exist.
@@ -471,6 +473,8 @@ class ParaReadProcessor(object):
 
         _LOGGER.info("Merging {} files into output file: '{}'".
                      format(len(good_chromosomes), self.outfile))
+
+        paths_combined_files = []
 
         with open(self.outfile, 'w') as outfile:
             for chrom in good_chromosomes:
@@ -488,3 +492,6 @@ class ParaReadProcessor(object):
                 with open(reads_chunk_output, 'r') as tmpf:
                     for line in tmpf:
                         outfile.write(line)
+                paths_combined_files.append(reads_chunk_output)
+
+        return paths_combined_files

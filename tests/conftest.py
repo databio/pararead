@@ -19,7 +19,8 @@ __email__ = "vreuter@virginia.edu"
 def pytest_generate_tests(metafunc):
     """ Additional runtime parameterization of test cases. """
     if "num_cores" in metafunc.fixturenames:
-        metafunc.parametrize(argnames="num_cores", argvalues=[1, 2, 4])
+        metafunc.parametrize(argnames="num_cores", argvalues=[1, 2, 4],
+                             ids=lambda nc: "cores={}".format(nc))
 
 
 

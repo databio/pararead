@@ -3,7 +3,8 @@
 import pytest
 from pysam import AlignmentFile
 
-from pararead.exceptions import CommandOrderException
+from pararead.exceptions import \
+        CommandOrderException, MissingOutputFileException
 from pararead.processor import ParaReadProcessor
 from tests import \
         NUM_CORES_DEFAULT, NUM_READS_BY_FILE, \
@@ -108,6 +109,8 @@ class FileRegistrationTests:
 class CombinerTests:
     """ Processor provides function to combine intermediate results. """
 
+    # NOTE: seemingly-unused fixtures are present for effectful-ness.
+
     CHROMOSOME_CHUNK_KEY = "chromosome"
     ARBITRARY_CHUNK_KEY = "arbitrary"
     CHROM_NAMES = ["chr{}".format(i) for i in range(1, 23)] + \
@@ -118,12 +121,36 @@ class CombinerTests:
 
 
     @pytest.fixture(scope="function")
-    def touch_files(self, request):
+    def extant_files(self, request, tmpdir):
+        """
+        Ensure the existence of certain files for a test case.
+        
+        Parameters
+        ----------
+        request : pytest.fixtures.SubRequest
+            Test case requesting the parameterization.
+        tmpdir : py._path.local.LocalPath
+            Path to temporary folder for the test case.
+
+        """
+
         if "which_names" in request.fixturenames:
             chunk_names_key = request.getfixturevalue("which_names")
-            chunk_names = self.CHUNK_NAMES[chunk_names_key]
+            chunk_names = self._names_from_key(chunk_names_key)
         else:
             chunk_names = self.CHROM_NAMES
+
+        if "filetype" in request.fixturenames:
+            extension = request.getfixturevalue("filetype")
+        else:
+            extension = "txt"
+
+        files = []
+        for chunk in chunk_names:
+            path_out_file = tmpdir.join("{}.{}".format(chunk, extension))
+            path_out_file.ensure(file=True)
+            files.append(path_out_file.strpath)
+        return files
 
 
     @pytest.mark.parametrize(
@@ -147,14 +174,49 @@ class CombinerTests:
         assert "WARN" in log_records[num_logs_before_combine]
 
 
-    @pytest.mark.parametrize(argnames="strict", argvalues=[False, True])
-    def test_missing_output_file(self, strict, num_cores):
-        """  """
+    @pytest.mark.parametrize(
+            argnames="which_names",
+            argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
+    def test_missing_output_files(self, tmpdir, which_names,
+                                  extant_files, num_cores):
+        """ Missing-output chunks be skipped or exceptional. """
 
-        if strict:
-            pass
-        else:
-            pass
+        path_output_file = tmpdir.join("test-output.txt").strpath
+        processor = IdentityProcessor(
+                PATH_UNALIGNED_FILE, cores=num_cores, allow_unaligned=True,
+                outfile=path_output_file, by_chromosome=False)
+        processor.temp_folder = tmpdir.strpath
+
+        combination_request_names = self.CHROM_NAMES + self.ARBITRARY_NAMES
+
+        with pytest.raises(MissingOutputFileException):
+            processor.combine(combination_request_names, strict=True)
+
+
+    @pytest.mark.parametrize(
+        argnames="which_names",
+        argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
+    def test_missing_output_files_non_strict_retval(
+            self, tmpdir, which_names,
+            extant_files, num_cores, path_logs_file):
+
+        path_output_file = tmpdir.join("test-output.txt").strpath
+        processor = IdentityProcessor(
+            PATH_UNALIGNED_FILE, cores=num_cores, allow_unaligned=True,
+            outfile=path_output_file, by_chromosome=False)
+        processor.temp_folder = tmpdir.strpath
+
+        combination_request_names = self.CHROM_NAMES + self.ARBITRARY_NAMES
+        observed_combined_filepaths = \
+            processor.combine(combination_request_names, strict=False)
+        assert extant_files == observed_combined_filepaths
+
+
+    @pytest.mark.parametrize(
+        argnames="which_names",
+        argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
+    def test_missing_output_files_non_strict_messaging(self, tmpdir, which_names, path_logs_file):
+        pass
 
 
     def test_ignores_extant_unspecified(self, num_cores):
@@ -169,6 +231,13 @@ class CombinerTests:
 
     def test_different_format(self, num_cores):
         pass
+
+
+    def _names_from_key(self, names_key):
+        try:
+            return self.CHUNK_NAMES[names_key]
+        except KeyError:
+            return self.CHROM_NAMES
 
 
 
