@@ -18,7 +18,8 @@ import tempfile
 
 import pysam
 
-from .exceptions import CommandOrderException, MissingOutputFileException
+from .exceptions import \
+    CommandOrderException, IllegalChunkException, MissingOutputFileException
 from .utils import *
 
 
@@ -464,12 +465,23 @@ class ParaReadProcessor(object):
         MissingOutputFileException
             If executing in strict mode, and there's a reads chunk key for 
             which the derived filepath does not exist.
+        IllegalChunkException
+            If a chunk of reads outside of those declared to be of interest 
+            is requested to participate in the combination.
         
         """
 
         if not good_chromosomes:
             _LOGGER.warn("No successful chromosomes, so no combining.")
             return
+
+        # Check that the combination request accords with the chunks
+        # declared to be of interest
+        if self.limit:
+            missing_chunks = set(good_chromosomes) - set(self.limit)
+            if missing_chunks:
+                raise IllegalChunkException(
+                        requested=missing_chunks, of_interest=self.limit)
 
         _LOGGER.info("Merging {} files into output file: '{}'".
                      format(len(good_chromosomes), self.outfile))

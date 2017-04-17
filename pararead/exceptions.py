@@ -31,6 +31,15 @@ class FileTypeException(Exception):
 
 
 
+class IllegalChunkException(Exception):
+    """ Illegal reads chunk ID. """
+    def __init__(self, requested, of_interest):
+        reason = "Requested {} but processing was restricted to: {}".\
+                format(requested, of_interest)
+        super(IllegalChunkException, self).__init__(reason)
+
+
+
 class MissingHeaderException(Exception):
     """ A reads file undergoing processing must have a header. """
     def __init__(self, filepath=""):

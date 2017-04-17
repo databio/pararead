@@ -1,14 +1,18 @@
 """ Basic tests for ParaRead """
 
+import itertools
+import os
+
 import pytest
 from pysam import AlignmentFile
 
 from pararead.exceptions import \
-        CommandOrderException, MissingOutputFileException
+    CommandOrderException, IllegalChunkException, \
+    MissingOutputFileException
 from pararead.processor import ParaReadProcessor
 from tests import \
-        NUM_CORES_DEFAULT, NUM_READS_BY_FILE, \
-        PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
+    NUM_CORES_DEFAULT, NUM_READS_BY_FILE, \
+    PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
 from tests.helpers import IdentityProcessor, loglines
 
 
@@ -153,6 +157,15 @@ class CombinerTests:
         return files
 
 
+    @pytest.fixture(scope="function")
+    def fixed_tempfolder_processor(self, tmpdir, num_cores):
+        path_output_file = tmpdir.join("test-output.txt").strpath
+        processor = IdentityProcessor(
+            PATH_ALIGNED_FILE, cores=num_cores, outfile=path_output_file)
+        processor.temp_folder = tmpdir.strpath
+        return processor
+
+
     @pytest.mark.parametrize(
             argnames="error_if_missing", argvalues=[False, True])
     def test_nothing_to_combine(self, tmpdir, path_logs_file,
@@ -177,60 +190,101 @@ class CombinerTests:
     @pytest.mark.parametrize(
             argnames="which_names",
             argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
-    def test_missing_output_files(self, tmpdir, which_names,
-                                  extant_files, num_cores):
+    def test_missing_output_files(
+            self, which_names, extant_files, fixed_tempfolder_processor):
         """ Missing-output chunks be skipped or exceptional. """
-
-        path_output_file = tmpdir.join("test-output.txt").strpath
-        processor = IdentityProcessor(
-                PATH_UNALIGNED_FILE, cores=num_cores, allow_unaligned=True,
-                outfile=path_output_file, by_chromosome=False)
-        processor.temp_folder = tmpdir.strpath
-
         combination_request_names = self.CHROM_NAMES + self.ARBITRARY_NAMES
-
         with pytest.raises(MissingOutputFileException):
-            processor.combine(combination_request_names, strict=True)
+            fixed_tempfolder_processor.combine(combination_request_names, strict=True)
 
 
     @pytest.mark.parametrize(
         argnames="which_names",
         argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
     def test_missing_output_files_non_strict_retval(
-            self, tmpdir, which_names,
-            extant_files, num_cores, path_logs_file):
-
-        path_output_file = tmpdir.join("test-output.txt").strpath
-        processor = IdentityProcessor(
-            PATH_UNALIGNED_FILE, cores=num_cores, allow_unaligned=True,
-            outfile=path_output_file, by_chromosome=False)
-        processor.temp_folder = tmpdir.strpath
-
+            self, which_names, extant_files,
+            fixed_tempfolder_processor, path_logs_file):
         combination_request_names = self.CHROM_NAMES + self.ARBITRARY_NAMES
-        observed_combined_filepaths = \
-            processor.combine(combination_request_names, strict=False)
+        observed_combined_filepaths = fixed_tempfolder_processor.combine(
+                combination_request_names, strict=False)
         assert extant_files == observed_combined_filepaths
 
 
     @pytest.mark.parametrize(
         argnames="which_names",
         argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
-    def test_missing_output_files_non_strict_messaging(self, tmpdir, which_names, path_logs_file):
-        pass
+    def test_missing_output_files_non_strict_messaging(
+            self, which_names, extant_files,
+            fixed_tempfolder_processor, path_logs_file):
+
+        combination_request_names = self.CHROM_NAMES + self.ARBITRARY_NAMES
+
+        # Do the combine step and get the logged messages.
+        num_logs_before_combine = len(loglines(path_logs_file))
+        fixed_tempfolder_processor.combine(
+                combination_request_names, strict=False)
+        logs_from_combine = loglines(path_logs_file)[num_logs_before_combine:]
+
+        # As a control, check that we are in fact over-requesting in combine().
+        num_extant_files = len(extant_files)
+        num_requested_files = len(combination_request_names)
+        assert num_extant_files < num_requested_files
+
+        # The control makes this assertion meaningful.
+        num_skips_expected = num_requested_files - num_extant_files
+        num_warns_observed = \
+                sum(1 for msg in logs_from_combine if "WARN" in msg)
+        assert num_skips_expected == num_warns_observed
 
 
-    def test_ignores_extant_unspecified(self, num_cores):
-        """ Files in tempfolder not requested for combination are ignored. """
-        pass
+    @pytest.mark.parametrize(
+        argnames=["filetype", "combined_output_type"],
+        argvalues=list(itertools.product(["bed", "tsv"], ["bed", "tsv"])),
+        ids=lambda (imd_out, end_out):
+        " intermediate={} - combined={} ".format(imd_out, end_out))
+    @pytest.mark.parametrize(
+        argnames="which_names",
+        argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
+    def test_different_format(self, tmpdir, filetype, combined_output_type,
+                              which_names, extant_files, num_cores):
+
+        # Manual creation of the processor here to control output type.
+        path_output_file = tmpdir.join(
+                "testfile.{}".format(combined_output_type)).strpath
+        processor = IdentityProcessor(
+                PATH_ALIGNED_FILE, cores=num_cores,
+                outfile=path_output_file, intermediate_output_type=filetype)
+        processor.temp_folder = tmpdir.strpath
+
+        expected_lines = {fp: "file{}: {}\n".format(i, fp)
+                          for i, fp in enumerate(extant_files)}
+        for fp, line in expected_lines.items():
+            with open(fp, 'w') as f:
+                f.write(line)
+
+        assert not os.path.exists(path_output_file)
+
+        processor.combine(self.CHUNK_NAMES[which_names], strict=True)
+        assert os.path.isfile(path_output_file)
+        with open(path_output_file, 'r') as combined:
+            observed_lines = combined.readlines()
+        assert set(expected_lines.values()) == set(observed_lines)
 
 
-    def combine_ordinary_textfiles(self, num_cores):
-        """ The processor combines files for which there are  """
-        pass
-
-
-    def test_different_format(self, num_cores):
-        pass
+    @pytest.mark.parametrize(
+        argnames="which_names",
+        argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
+    def test_enforces_chunks_limit(
+            self, which_names, extant_files, 
+            fixed_tempfolder_processor, path_logs_file):
+        """ Combination applies only to chunks of interest. """
+        extant_read_chunks = self.CHUNK_NAMES[which_names]
+        fixed_tempfolder_processor.limit = extant_read_chunks
+        bad_chunk_name = "not-a-chunk"
+        with pytest.raises(IllegalChunkException) as error:
+            fixed_tempfolder_processor.combine(
+                    extant_read_chunks + [bad_chunk_name])
+        assert bad_chunk_name in error.value.message
 
 
     def _names_from_key(self, names_key):
