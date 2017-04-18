@@ -64,3 +64,13 @@ class MissingOutputFileException(Exception):
         reason = "Path to output file for reads chunk '{}' " \
                  "does not exist: '{}'".format(reads_chunk_key, filepath)
         super(MissingOutputFileException, self).__init__(reason)
+
+
+
+class UnknownChromosomeException(Exception):
+    """ Represent case in which data about a chromosome is not available. """
+    def __init__(self, requested, known=None):
+        reason = requested
+        if known:
+            reason += "; known: {}".format(known)
+        super(UnknownChromosomeException, self).__init__(reason)
