@@ -1,4 +1,5 @@
-ParaRead is a module for processing sequencing reads (bam or sam files) in
-parallel. You use it by writing a child class that extends the included
-ParaReadProcessor class. It should implement the __call__() function at a minimum,
-defining what to do with each chromosome.
+This project aims to simplify parallel processing of sequencing reads (BAM or SAM files), 
+using the chromosome as the unit on which to group/partition. The main model provided is 
+`ParaReadProcessor`, for which concrete children are created by implementing a `__call__`
+method. This makes creates a callable instance that is then mapped over chromosomes.
+
