@@ -351,6 +351,7 @@ class CombinerTests:
 
 
 
+@pytest.mark.skip("Not implemented")
 class IntegrationTests:
     """ A couple of sample end-to-end tests through a simple processor. """
     pass

@@ -126,6 +126,8 @@ class ParaReadProcessor(object):
             raise ValueError("Either path to output file or "
                              "name of processing action is required.")
 
+        # Perform check after establishing the setting so that it works
+        # regardless of whether the path was explicit or inferred.
         if os.path.exists(self.outfile):
             if require_new_outfile:
                 raise ValueError("Output file already exists: '{}'".
@@ -165,7 +167,7 @@ class ParaReadProcessor(object):
 
 
     @abc.abstractmethod
-    def __call__(self, reads_chunk, chunk_id):
+    def __call__(self, chunk_id, reads_chunk):
         """
         Perform 'chunk'-wise processing implemented in the subclass.
 
@@ -179,12 +181,12 @@ class ParaReadProcessor(object):
 
         Parameters
         ----------
-        reads_chunk : Iterable of pysam.AlignedSegment
-            Chunk of sequencing reads to process.
         chunk_id : int or str
             Reads chunk identifier; this is passed in case it's of use 
             in the client implementation, but for many use cases it 
             can be ignored.
+        reads_chunk : Iterable
+            Chunk of sequencing reads to process, likely pysam.AlignedSegment.
 
         Returns
         -------
@@ -256,16 +258,24 @@ class ParaReadProcessor(object):
         """
         Add to module map any large/unpicklable variables required by __call__.
         
+        Parameters
+        ----------
+        **file_builder_kwargs
+            Arbitrary keyword arguments for the pysam file constructor.
+            
+        
         Warnings
         --------
         A subclass overriding this method should be sure to register the 
-        file passed to the constructor, or to make a call to this method.
+        file passed to the constructor, or call this method from the 
+        overriding implementation.
         
         Raises
         ------
         FileTypeException
             If the path to the reads file given doesn't appear 
             to match one of the supported file types.
+        
         """
 
         _LOGGER.info("Registering input file: '{}'", self.path_reads_file)
@@ -420,6 +430,10 @@ class ParaReadProcessor(object):
         ----------
         good_chromosomes : Iterable of str
             Identifier (e.g., chromosome) for each chunk of reads processed.
+        strict : bool
+            Whether to throw an exception upon encountering a missing file. 
+            If not, simply log a warning message and continue the aggregation 
+            process that's underway, working with what is available.
         
         Returns
         -------
@@ -452,11 +466,15 @@ class ParaReadProcessor(object):
         _LOGGER.info("Merging {} files into output file: '{}'".
                      format(len(good_chromosomes), self.outfile))
 
+        # Track what we actually combine (particularly if non-strict
+        # with respect to chunk(s) for which output file is missing.
         paths_combined_files = []
 
         with open(self.outfile, 'w') as outfile:
             for chrom in good_chromosomes:
                 reads_chunk_output = self._tempf(chrom)
+
+                # Handle case in which chunk's output is missing.
                 if not os.path.exists(reads_chunk_output):
                     if strict:
                         raise MissingOutputFileException(
@@ -467,6 +485,8 @@ class ParaReadProcessor(object):
                                 "Missing output file for reads chunk '%s', "
                                 "skipping: '%s'", chrom, reads_chunk_output)
                         continue
+
+                # Append lines from this chunk's output.
                 with open(reads_chunk_output, 'r') as tmpf:
                     for line in tmpf:
                         outfile.write(line)

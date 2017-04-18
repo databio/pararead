@@ -231,6 +231,23 @@ def partition_chunks_by_null_result(result_by_chromosome):
 
 
 def pending_feature(not_yet_implemented):
+    """
+    Indicate that a callable's implementation is not complete or not stable.
+    
+    This simplifies designation and application of this concept, 
+    and it simplifies removal once the implementation is ready for use.
+    
+    Parameters
+    ----------
+    not_yet_implemented : callable
+        The function or class not ready to be used, pending implementation.
+
+    Returns
+    -------
+    callable
+        Object that will raise NotImplementedError if called.
+
+    """
     def raise_error(*args, **kwargs):
         raise NotImplementedError("{} is not fully implemented".
                                   format(not_yet_implemented.__name__))
@@ -239,6 +256,6 @@ def pending_feature(not_yet_implemented):
 
 
 def unbuffered_write(txt):
-    """ Writes unbuffered output by flushing after each stdout.write call """
+    """ Write unbuffered output by flushing after each stdout.write call. """
     sys.stdout.write(txt)
     sys.stdout.flush()

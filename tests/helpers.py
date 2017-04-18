@@ -42,8 +42,8 @@ class IdentityProcessor(ParaReadProcessor):
 class ReadsfileWrapper(object):
     """ Wrap a pysam reads file for context management. """
 
-    def __init__(self, path_reads_file, reads_ctor=AlignmentFile,
-                 **builder_kwargs):
+    def __init__(self, path_reads_file,
+                 reads_ctor=AlignmentFile, **builder_kwargs):
         self.path_reads_file = path_reads_file
         self.reads_ctor = reads_ctor
         self.builder_kwargs = builder_kwargs

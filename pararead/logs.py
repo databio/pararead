@@ -35,31 +35,34 @@ def setup_pararead_logger(
 
     Parameters
     ----------
-    stream_level : int or str
-        Level of interest in logging messages.
     stream : str or None, optional
         Standard stream to use as log destination. 
         Use 'none' or a null value to silence logging to a standard stream. 
         Default behavior is to write logs to stdout.
-    logfile : str or FileIO[str]
-        Path to filesystem location to use as logs destination.
-    logfile_level : str or int
-        Level to use for logging to file.
-    as_root : bool
+    stream_level : int or str, optional
+        Level of interest in logging messages.
+    stream_format : str, optional
+        Logging format string to use for stream-destined messages.
+    no_stream : bool
+        Whether to not log to a standard stream. This is triggered 
+        automatically by providing a filepath for logs.
+    as_root : bool, default True
         Whether to use returned logger as root logger. This means that 
-        the name will be 'root' and that messages will not propagate.
-    propagate : bool
+        the name will be 'root' and that messages will not propagate. 
+    propagate : bool, default False
         Whether to allow messages from this logger to reach parent logger(s).
+    logfile : str or FileIO[str], optional
+        Path to filesystem location to use as logs destination. 
+        If provided, this mutes logging to a standard output stream.
+    logfile_level : str or int, optional
+        Level to use for logging to file.
+    logfile_format : str, optional
+        How to format logging messages sent to a file.
 
     Returns
     -------
     logging.Logger
         Configured logger instance.
-
-    Raises
-    ------
-    ValueError
-        If given an invalid option for standard stream(s) destination(s).
 
     """
 
@@ -98,20 +101,23 @@ def setup_pararead_logger(
         stream_loc = None
         stream_level = _parse_level(stream_level)
 
-        if stream not in [sys.stderr, sys.stdout]:
+        # Deal with possible argument types.
+        if stream in [sys.stderr, sys.stdout]:
             stream_handler = logging.StreamHandler(stream)
             stream_handler.setLevel(stream_level)
-        elif isinstance(stream, str):
-            stream = stream.upper()
+        else:
             try:
-                stream_loc = {"OUT": sys.stdout, "ERR": sys.stderr}[stream]
-            except KeyError:
+                # Assume that we have a stream-indicative text argument.
+                stream_loc = \
+                        {"OUT": sys.stdout, "ERR": sys.stderr}[stream.upper()]
+            except (AttributeError, KeyError):
+                # Fall back on default stream since
+                # arguments indicate that one should be activate.
                 print("Invalid stream location: {}; using {}".
                       format(stream, DEFAULT_STREAM))
                 stream_loc = DEFAULT_STREAM
-        else:
-            stream_loc = stream
 
+        # Create and add the handler.
         stream_handler = logging.StreamHandler(stream_loc)
         stream_handler.setFormatter(logging.Formatter(stream_format))
         stream_handler.setLevel(stream_level)
@@ -122,12 +128,14 @@ def setup_pararead_logger(
         if not os.path.exists(logfile_folder):
             os.makedirs(logfile_folder)
 
+        # Create and add the handler, overwriting rather than appending.
         logfile_level = _parse_level(logfile_level)
         logfile_handler = logging.FileHandler(logfile, mode='w')
         logfile_handler.setFormatter(logging.Formatter(logfile_format))
         logfile_handler.setLevel(logfile_level)
         handlers.append(logfile_handler)
 
+    # Set logger level and add handlers.
     logger_level = min(h.level for h in handlers)
     logger.setLevel(logger_level)
     for h in handlers:
