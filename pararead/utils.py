@@ -110,7 +110,13 @@ def interleave_chromosomes_by_size(size_by_chromosome):
     if num_interleaved != num_chromosomes:
         # Account for odd number of chromosomes; zip will truncate.
         assert num_interleaved == num_chromosomes - 1
-        maybe_missing_chrom = ordered_chromosomes[-1]
+
+        # Second half is zipped with first in reverse order, so if there's
+        # an element that's gone missing, it would be the first element of
+        # the second half. It will have been "flipped out" of the zip.
+        # The second half is guaranteed to be no longer than the first since
+        # the first is taken up to the int-truncated half of list size.
+        maybe_missing_chrom = second_half[0]
         assert maybe_missing_chrom not in interleaved
         interleaved.append(maybe_missing_chrom)
 

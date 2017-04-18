@@ -164,36 +164,11 @@ class ParaReadProcessor(object):
         self.by_chromosome = by_chromosome
 
 
-    @staticmethod
-    def readsfile():
-        """
-        
-        Returns
-        -------
-        pysam.AlignmentFile | pysam.VariantFile
-            Instance of the reads file abstraction appropriate for the 
-            given type of input data (e.g., BAM or VCF).
-
-        Raises
-        ------
-        CommandOrderException
-            If a command prerequisite for a parallel reads processor 
-            operation has not yet been performed.
-
-        """
-        try:
-            return PARA_READ_FILES[READS_FILE_KEY]
-        except KeyError:
-            raise CommandOrderException(
-                "No {} established; has {} been called?".format(
-                READS_FILE_KEY, ParaReadProcessor.register_files.__name__))
-
-
     @abc.abstractmethod
     def __call__(self, reads_chunk, chunk_id):
         """
         Perform 'chunk'-wise processing implemented in the subclass.
-        
+
         A concrete implementation operates on a chunk of sequencing reads. 
         By default, a 'chunk' simply consists of contiguous reads from the 
         input file, but a subclass that overrides the partitioning mechanism 
@@ -210,34 +185,71 @@ class ParaReadProcessor(object):
             Reads chunk identifier; this is passed in case it's of use 
             in the client implementation, but for many use cases it 
             can be ignored.
-        
+
         Returns
         -------
         None or object
             None if the chunk's processing failed, otherwise a non-null result.
-        
+
         """
         pass
 
 
-    def _tempf(self, chrom):
+    @property
+    def files(self):
         """
-        Derive name for temporary file from chromosome name.
+        Refer to the pararead files mapping.
+        
+        Returns
+        -------
+        dict[str, object]
+            Pararead files mapping.
+
+        """
+        return PARA_READ_FILES
+
+
+    @property
+    def readsfile(self):
+        """
+        
+        Returns
+        -------
+        pysam.AlignmentFile | pysam.VariantFile
+            Instance of the reads file abstraction appropriate for the 
+            given type of input data (e.g., BAM or VCF).
+
+        Raises
+        ------
+        CommandOrderException
+            If a command prerequisite for a parallel reads processor 
+            operation has not yet been performed.
+
+        """
+        return self.fetch(READS_FILE_KEY)
+
+
+    def fetch(self, file_key):
+        """
+        Retrieve one of the files registered with pararead.
 
         Parameters
         ----------
-        chrom : str
-            Name of chromosome (single processing partition).
+        file_key : str
+            Which file to fetch.
 
         Returns
         -------
-        str
-            Name for tempfile corresponding to given unit name.
+        object, likely pysam.AlignmentFile
+            File ADT instance associated with the requested key.
 
         """
-        return os.path.join(
-                self.temp_folder,
-                "{}.{}".format(chrom, self.intermediate_output_type))
+        try:
+            return self.files[file_key]
+        except KeyError:
+            raise CommandOrderException(
+                "No {} established; has {} been called?".format(
+                    READS_FILE_KEY, ParaReadProcessor.register_files.__name__))
 
 
     def register_files(self, **file_builder_kwargs):
@@ -376,52 +388,6 @@ class ParaReadProcessor(object):
         return good_chunks
 
 
-    @pending_feature
-    def chunk_reads(self, readsfile, chunksize=None):
-        """
-        Partition sequencing reads into equally-sized 'chunks' for 
-        parallel processing. This treats all reads equally, in that 
-        they are grouped by contiguous occurrence within the given 
-        input file. This facilitates processing of unaligned reads, 
-        but it means that reads from the same chromosome will not be 
-        processed together. This can be overridden if that's desired.
-
-        Parameters
-        ----------
-        readsfile : Iterable, likely pysam.AlignmentFile or pysam.VariantFile
-            Reads to split into chunks.
-        chunksize : int
-            Number of units (i.e., reads) per processing chunk. 
-            If unspecified, this is derived using the instance's 
-            cores count and chunks-per-core parameter, along with 
-            a count of the number of units (reads). Note that if 
-            this is unspecified, there will be some additional time 
-            used to count the reads to derive chunk size.
-
-        Returns
-        -------
-        Iterable of (int, itertools.groupby)
-            Pairs of chunk key/ID and chunk reads chunk itself.
-
-        """
-        if not chunksize or chunksize < 1:
-            _, reads_clone = itertools.tee(readsfile)
-            num_chunks = self.cores * CHUNKS_PER_CORE
-
-            # Count the reads.
-            _LOGGER.info("Deriving chunk size for %d chunks: "
-                         "%d cores x %d chunks/core",
-                         num_chunks, self.cores, CHUNKS_PER_CORE)
-            _, reads_clone = itertools.tee(readsfile)
-            num_reads = sum(1 for _ in reads_clone)
-            _LOGGER.info("Reads count: %d", num_reads)
-
-            chunksize = int(num_reads / num_chunks)
-
-        return itertools.groupby(
-            enumerate(readsfile), key=lambda (i, _): int(i / chunksize))
-
-
     def fetch_chunk(self, chromosome):
         """
         Pull a chunk of sequencing reads from a file.
@@ -507,3 +473,69 @@ class ParaReadProcessor(object):
                 paths_combined_files.append(reads_chunk_output)
 
         return paths_combined_files
+
+
+    @pending_feature
+    def chunk_reads(self, readsfile, chunksize=None):
+        """
+        Partition sequencing reads into equally-sized 'chunks' for 
+        parallel processing. This treats all reads equally, in that 
+        they are grouped by contiguous occurrence within the given 
+        input file. This facilitates processing of unaligned reads, 
+        but it means that reads from the same chromosome will not be 
+        processed together. This can be overridden if that's desired.
+
+        Parameters
+        ----------
+        readsfile : Iterable, likely pysam.AlignmentFile or pysam.VariantFile
+            Reads to split into chunks.
+        chunksize : int
+            Number of units (i.e., reads) per processing chunk. 
+            If unspecified, this is derived using the instance's 
+            cores count and chunks-per-core parameter, along with 
+            a count of the number of units (reads). Note that if 
+            this is unspecified, there will be some additional time 
+            used to count the reads to derive chunk size.
+
+        Returns
+        -------
+        Iterable of (int, itertools.groupby)
+            Pairs of chunk key/ID and chunk reads chunk itself.
+
+        """
+        if not chunksize or chunksize < 1:
+            _, reads_clone = itertools.tee(readsfile)
+            num_chunks = self.cores * CHUNKS_PER_CORE
+
+            # Count the reads.
+            _LOGGER.info("Deriving chunk size for %d chunks: "
+                         "%d cores x %d chunks/core",
+                         num_chunks, self.cores, CHUNKS_PER_CORE)
+            _, reads_clone = itertools.tee(readsfile)
+            num_reads = sum(1 for _ in reads_clone)
+            _LOGGER.info("Reads count: %d", num_reads)
+
+            chunksize = int(num_reads / num_chunks)
+
+        return itertools.groupby(
+            enumerate(readsfile), key=lambda (i, _): int(i / chunksize))
+
+
+    def _tempf(self, chrom):
+        """
+        Derive name for temporary file from chromosome name.
+
+        Parameters
+        ----------
+        chrom : str
+            Name of chromosome (single processing partition).
+
+        Returns
+        -------
+        str
+            Name for tempfile corresponding to given unit name.
+
+        """
+        return os.path.join(
+                self.temp_folder,
+                "{}.{}".format(chrom, self.intermediate_output_type))
