@@ -19,7 +19,8 @@ import tempfile
 import pysam
 
 from .exceptions import \
-    CommandOrderException, IllegalChunkException, MissingOutputFileException
+    CommandOrderException, IllegalChunkException, \
+    MissingOutputFileException, UnknownChromosomeException
 from .utils import *
 
 
@@ -164,6 +165,7 @@ class ParaReadProcessor(object):
         self.require_aligned = by_chromosome or not allow_unaligned
         self.intermediate_output_type = intermediate_output_type
         self.by_chromosome = by_chromosome
+        self._size_by_chromosome = None
 
 
     @abc.abstractmethod
@@ -245,6 +247,11 @@ class ParaReadProcessor(object):
         object, likely pysam.AlignmentFile
             File ADT instance associated with the requested key.
 
+        Raises
+        ------
+        CommandOrderException
+            If the indicated file hasn't been registered.
+
         """
         try:
             return self.files[file_key]
@@ -252,6 +259,39 @@ class ParaReadProcessor(object):
             raise CommandOrderException(
                 "No {} established; has {} been called?".format(
                     READS_FILE_KEY, ParaReadProcessor.register_files.__name__))
+
+
+    def get_chrom_size(self, chrom):
+        """
+        Determine the size of the given chromosome.
+        
+        Parameters
+        ----------
+        chrom : str
+            Name of chromosome of interest.
+
+        Returns
+        -------
+        int
+            Size of chromosome of interest.
+
+        Raises
+        ------
+        CommandOrderException
+            If there's no chromosome sizes map yet.
+        UnknownChromosomeException
+            If requested chromosome is not in the sizes map.
+
+        """
+        if not self._size_by_chromosome:
+            raise CommandOrderException(
+                    "No size-by-chromosome mapping; "
+                    "has a reads file been registered?")
+        try:
+            return self._size_by_chromosome[chrom]
+        except KeyError:
+            raise UnknownChromosomeException(
+                    chrom, known=self._size_by_chromosome.keys())
 
 
     def register_files(self, **file_builder_kwargs):
@@ -292,6 +332,10 @@ class ParaReadProcessor(object):
 
         readsfile = builder(self.path_reads_file, **kwargs)
         PARA_READ_FILES[READS_FILE_KEY] = readsfile
+
+        # Cache mapping from chromosome name to size for easy access.
+        self._size_by_chromosome = parse_bam_header(
+                readsfile, require_aligned=self.require_aligned)
 
         def ensure_closed():
             if readsfile.is_open:
