@@ -21,10 +21,8 @@ import pysam
 from .exceptions import \
     CommandOrderException, IllegalChunkException, \
     MissingOutputFileException, UnknownChromosomeException
+from .logs import setup_logger
 from .utils import *
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 """
@@ -43,6 +41,8 @@ CHUNKS_PER_CORE = 5
 CORES_PARAM_NAME = "cores"
 
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class ParaReadProcessor(object):
     """
@@ -58,16 +58,14 @@ class ParaReadProcessor(object):
 
     __metaclass__ = abc.ABCMeta
 
-    FETCH_ALL_FLAG = "ALL"
+    ALL_READ_CHUNKS_KEY = "ALL"
 
 
-    def __init__(self,
-                 path_reads_file, cores,
-                 outfile=None, action=None,
-                 temp_folder_parent_path=None,
-                 limit=None, allow_unaligned=False,
-                 require_new_outfile=False, by_chromosome=True,
-                 intermediate_output_type="txt", output_type="txt"):
+    def __init__(
+            self, path_reads_file, cores, outfile=None, action=None,
+            temp_folder_parent_path=None, limit=None, allow_unaligned=False,
+            require_new_outfile=False, by_chromosome=True,
+            intermediate_output_type="txt", output_type="txt"):
         """
         Regardless of subclass behavior, there is a
         set of fields that an instance should have.
@@ -112,6 +110,15 @@ class ParaReadProcessor(object):
 
         """
 
+        # Establish root logger only if client application hasn't done so.
+        # That is, create a root logger with a handler if one doesn't exist.
+        if not logging.getLogger().handlers:
+            import sys
+            global _LOGGER
+            _LOGGER = setup_logger(
+                    stream=sys.stdout, level=logging.INFO,
+                    make_root=True, propagate=False)
+
         # Initial path setup and filetype handling.
         name_reads_file = os.path.basename(path_reads_file)
         readsfile_basename, _ = os.path.splitext(name_reads_file)
@@ -135,8 +142,8 @@ class ParaReadProcessor(object):
                                  format(self.outfile))
             else:
                 _LOGGER.warn(
-                        "WARNING: Output file already exists "
-                        "and will be overwritten: '{}'".format(self.outfile))
+                        "Output file already exists and "
+                        "will be overwritten: '{}'".format(self.outfile))
 
         # Create temp folder that's deleted upon exit.
         if not temp_folder_parent_path:
@@ -318,7 +325,7 @@ class ParaReadProcessor(object):
         
         """
 
-        _LOGGER.info("Registering input file: '{}'", self.path_reads_file)
+        _LOGGER.info("Registering input file: '%s'", self.path_reads_file)
         reads_file_maker = create_reads_builder(self.path_reads_file)
 
         # Here, check_sq is necessary so that ParaRead can process
@@ -347,13 +354,16 @@ class ParaReadProcessor(object):
         """
         Do the processing defined partitioned across each unit (chromosome).
 
+        Parameters
+        ----------
+        chunksize : int, optional
+            Number of reads per processing chunk; if unspecified, the 
+            default heuristic of size s.t. each core gets ~ 4 chunks.
+
         Returns
         -------
         collections.Iterable of str
             Names of chromosomes for which result is non-null.
-        chunksize : int, optional
-            Number of reads per processing chunk; if unspecified, the 
-            default heuristic of size s.t. each core gets ~ 4 chunks.
         
         Raises
         ------
@@ -381,7 +391,7 @@ class ParaReadProcessor(object):
             # The chromosome-fetch function provided here knows how
             # to interpret the flag. If overridden, the new implementation
             # should also provide a
-            read_chunk_keys = [self.FETCH_ALL_FLAG]
+            read_chunk_keys = [self.ALL_READ_CHUNKS_KEY]
         else:
             size_by_chromosome = parse_bam_header(
                     readsfile=readsfile, chroms=self.limit,
@@ -462,7 +472,7 @@ class ParaReadProcessor(object):
                     "Provide a fetch_chunk implementation "
                     "if not partitioning reads by chromosome.")
         readsfile = PARA_READ_FILES[READS_FILE_KEY]
-        reference = None if chromosome == self.FETCH_ALL_FLAG else chromosome
+        reference = None if chromosome == self.ALL_READ_CHUNKS_KEY else chromosome
         return readsfile.fetch(reference=reference, multiple_iterators=True)
 
 
