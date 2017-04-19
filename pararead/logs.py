@@ -11,7 +11,8 @@ __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-__all__ = ["attach_log_opts", "logger_via_cli", "setup_logger"]
+__all__ = ["attach_log_opts", "logger_via_cli", "setup_logger",
+           "TRACE_LEVEL_NAME", "TRACE_LEVEL_VALUE"]
 
 
 PACKAGE_NAME = os.path.basename(os.path.dirname(__file__))

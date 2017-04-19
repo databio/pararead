@@ -142,8 +142,8 @@ class ParaReadProcessor(object):
                                  format(self.outfile))
             else:
                 _LOGGER.warn(
-                        "WARNING: Output file already exists "
-                        "and will be overwritten: '{}'".format(self.outfile))
+                        "Output file already exists and "
+                        "will be overwritten: '{}'".format(self.outfile))
 
         # Create temp folder that's deleted upon exit.
         if not temp_folder_parent_path:
