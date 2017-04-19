@@ -98,8 +98,7 @@ def remove_reads_file(request):
 def path_logs_file(request, tmpdir):
 
     logfile = tmpdir.join(NAME_TEST_LOGFILE).strpath
-    logger = setup_logger(
-            logfile=logfile, stream_format=DEV_LOGGING_FMT)
+    logger = setup_logger(logfile=logfile, fmt=DEV_LOGGING_FMT)
 
     def clear_handlers():
         logger.handlers = []

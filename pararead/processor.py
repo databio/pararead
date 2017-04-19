@@ -116,7 +116,7 @@ class ParaReadProcessor(object):
             import sys
             global _LOGGER
             _LOGGER = setup_logger(
-                    stream=sys.stdout, stream_level=logging.INFO,
+                    stream=sys.stdout, level=logging.INFO,
                     as_root=True, propagate=False)
 
         # Initial path setup and filetype handling.
@@ -325,7 +325,7 @@ class ParaReadProcessor(object):
         
         """
 
-        _LOGGER.info("Registering input file: '{}'", self.path_reads_file)
+        _LOGGER.info("Registering input file: '%s'", self.path_reads_file)
         reads_file_maker = create_reads_builder(self.path_reads_file)
 
         # Here, check_sq is necessary so that ParaRead can process
@@ -354,13 +354,16 @@ class ParaReadProcessor(object):
         """
         Do the processing defined partitioned across each unit (chromosome).
 
+        Parameters
+        ----------
+        chunksize : int, optional
+            Number of reads per processing chunk; if unspecified, the 
+            default heuristic of size s.t. each core gets ~ 4 chunks.
+
         Returns
         -------
         collections.Iterable of str
             Names of chromosomes for which result is non-null.
-        chunksize : int, optional
-            Number of reads per processing chunk; if unspecified, the 
-            default heuristic of size s.t. each core gets ~ 4 chunks.
         
         Raises
         ------
