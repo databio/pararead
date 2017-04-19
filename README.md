@@ -7,5 +7,5 @@ method. This makes creates a callable instance that is then mapped over chromoso
 
 ## Install
 ```
-pip install --user --update https://github.com/databio/pararead/zipball/master
+pip install --user --upgrade https://github.com/databio/pararead/zipball/master
 ```
