@@ -12,6 +12,7 @@ __email__ = "vreuter@virginia.edu"
 
 
 __all__ = ["attach_log_opts", "logger_via_cli", "setup_logger",
+           "DEV_LOGGING_FMT", "LOGLEVEL_OPTNAME",
            "TRACE_LEVEL_NAME", "TRACE_LEVEL_VALUE"]
 
 
