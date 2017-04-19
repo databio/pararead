@@ -114,7 +114,7 @@ def logger_via_cli(opts, **kwargs):
 
 def setup_logger(
         stream=None, logfile=None,
-        as_root=True, propagate=False, silent=False,
+        make_root=True, propagate=False, silent=False,
         level=LOGGING_LEVEL, verbosity=None,
         fmt=STREAM_LOGGING_FORMAT, datefmt=None):
     """
@@ -139,7 +139,7 @@ def setup_logger(
     logfile : str or FileIO[str], optional
         Path to filesystem location to use as logs destination. 
         If provided, this mutes logging to a standard output stream.
-    as_root : bool, default True
+    make_root : bool, default True
         Whether to use returned logger as root logger. This means that 
         the name will be 'root' and that messages will not propagate. 
     propagate : bool, default False
@@ -174,10 +174,10 @@ def setup_logger(
     logging.addLevelName(TRACE_LEVEL_VALUE, TRACE_LEVEL_NAME)
 
     # Establish the logger.
-    name = "root" if as_root else PACKAGE_NAME
+    name = "" if make_root else PACKAGE_NAME
     logger = logging.getLogger(name)
     logger.handlers = []
-    logger.propagate = propagate and not as_root
+    logger.propagate = propagate and not make_root
 
     # Either short-circuit with a silent logger or parse and set level.
     if silent:
