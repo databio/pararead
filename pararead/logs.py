@@ -21,7 +21,7 @@ DEFAULT_STREAM = sys.stdout
 STREAMS = {"OUT": sys.stdout, "ERR": sys.stderr}
 
 LOGGING_LEVEL = "INFO"
-STREAM_LOGGING_FORMAT = "%(message)s"
+BASIC_LOGGING_FORMAT = "%(message)s"
 DEV_LOGGING_FMT = "[%(asctime)s] %(module)s:%(lineno)d [%(levelname)s] > %(message)s "
 TRACE_LEVEL_VALUE = 5
 TRACE_LEVEL_NAME = "TRACE"
@@ -117,7 +117,7 @@ def setup_logger(
         stream=None, logfile=None,
         make_root=True, propagate=False, silent=False,
         level=LOGGING_LEVEL, verbosity=None,
-        fmt=STREAM_LOGGING_FORMAT, datefmt=None):
+        fmt=BASIC_LOGGING_FORMAT, datefmt=None):
     """
     Establish the package-level logger.
 
@@ -222,8 +222,9 @@ def setup_logger(
         
         # Create and add the handler.
         handler = logging.StreamHandler(stream_loc)
-        handler.setFormatter(logging.Formatter(
-                fmt=fmt or STREAM_LOGGING_FORMAT, datefmt=datefmt))
+        fmt = fmt or (DEV_LOGGING_FMT if level <= logging.DEBUG
+                      else BASIC_LOGGING_FORMAT)
+        handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
         handler.setLevel(level)
 
     logger.addHandler(handler)
