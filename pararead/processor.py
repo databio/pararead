@@ -58,8 +58,6 @@ class ParaReadProcessor(object):
 
     __metaclass__ = abc.ABCMeta
 
-    ALL_READ_CHUNKS_KEY = "ALL"
-
 
     def __init__(
             self, path_reads_file, cores, outfile=None, action=None,
@@ -391,7 +389,7 @@ class ParaReadProcessor(object):
             # The chromosome-fetch function provided here knows how
             # to interpret the flag. If overridden, the new implementation
             # should also provide a
-            read_chunk_keys = [self.ALL_READ_CHUNKS_KEY]
+            read_chunk_keys = [None]
         else:
             size_by_chromosome = parse_bam_header(
                     readsfile=readsfile, chroms=self.limit,
@@ -472,8 +470,7 @@ class ParaReadProcessor(object):
                     "Provide a fetch_chunk implementation "
                     "if not partitioning reads by chromosome.")
         readsfile = PARA_READ_FILES[READS_FILE_KEY]
-        reference = None if chromosome == self.ALL_READ_CHUNKS_KEY else chromosome
-        return readsfile.fetch(reference=reference, multiple_iterators=True)
+        return readsfile.fetch(reference=chromosome, multiple_iterators=True)
 
 
     def combine(self, good_chromosomes, strict=False):
