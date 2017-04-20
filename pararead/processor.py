@@ -237,10 +237,10 @@ class ParaReadProcessor(object):
             operation has not yet been performed.
 
         """
-        return self.fetch(READS_FILE_KEY)
+        return self.fetch_file(READS_FILE_KEY)
 
 
-    def fetch(self, file_key):
+    def fetch_file(self, file_key):
         """
         Retrieve one of the files registered with pararead.
 
