@@ -385,30 +385,31 @@ class ParaReadProcessor(object):
 
         if not self.by_chromosome:
             read_chunk_keys = self.chunk_reads(readsfile, chunksize=chunksize)
-        elif self.cores == 1:
-            # The chromosome-fetch function provided here knows how
-            # to interpret the flag. If overridden, the new implementation
-            # should also provide a
-            read_chunk_keys = [None]
         else:
             size_by_chromosome = parse_bam_header(
-                    readsfile=readsfile, chroms=self.limit,
-                    require_aligned=self.require_aligned)
-            if size_by_chromosome is None:
-                # Unaligned files lack any chrom header lines.
-                # If so, we'll get back a null to disambiguate
-                # empty filter case if permitting unaligned
-                # input. If requiring aligned input, the call
-                # will have already generated an exception to that effect.
-                _LOGGER.warn("Failed attempt to parse chromosomes as read "
-                             "chunk keys; arbitrarily chunking reads instead.")
-                read_chunk_keys = self.chunk_reads(
-                        readsfile, chunksize=chunksize)
+                readsfile=readsfile, chroms=self.limit,
+                require_aligned=self.require_aligned)
+            if self.cores == 1:
+                # TODO: handle case (unaligned input) of null return.
+                # TODO: pysam's fetch() may make this OK but not distribute.
+                read_chunk_keys = size_by_chromosome.keys()
             else:
-                # Interleave chromosomes by size so that if tasks
-                # are pre-allocated to workers, we'll get roughly even bins.
-                read_chunk_keys = \
-                    interleave_chromosomes_by_size(size_by_chromosome.items())
+                if size_by_chromosome is None:
+                    # Unaligned files lack any chrom header lines.
+                    # If so, we'll get back a null to disambiguate
+                    # empty filter case if permitting unaligned
+                    # input. If requiring aligned input, the call
+                    # will have already generated an exception to that effect.
+                    _LOGGER.warn(
+                            "Failed attempt to parse chromosomes as read "
+                            "chunk keys; arbitrarily chunking reads instead.")
+                    read_chunk_keys = self.chunk_reads(
+                            readsfile, chunksize=chunksize)
+                else:
+                    # Interleave chromosomes by size so that if tasks are
+                    # pre-allocated to workers, we'll get roughly even bins.
+                    read_chunk_keys = interleave_chromosomes_by_size(
+                            size_by_chromosome.items())
 
         _LOGGER.info("Temporary files will be stored in: '{}'".
                      format(self.temp_folder))
@@ -609,4 +610,4 @@ class ParaReadProcessor(object):
         """
         return os.path.join(
                 self.temp_folder,
-                "{}.{}".format(chrom, self.intermediate_output_type))
+                "{}.{}".format(chrom or "ALL", self.intermediate_output_type))

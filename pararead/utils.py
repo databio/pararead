@@ -168,8 +168,16 @@ def parse_bam_header(readsfile, chroms=None, require_aligned=False):
 
     Returns
     -------
-    None or Iterable of str, int
-        Null if no chromosomes are in the header
+    None or Mapping[str, int]
+        Null if no chromosomes are in the header (unaligned?) and non-strict 
+        (i.e., not requiring aligned input). Otherwise, a mapping from 
+        chromosome name to length.
+
+    Raises
+    ------
+    MissingHeaderException
+        If the reads file header lacks chromosome names (unaligned?) and 
+        strictness is imposed (raise exception for this case).
 
     """
 
