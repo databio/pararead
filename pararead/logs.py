@@ -23,7 +23,7 @@ STREAMS = {"OUT": sys.stdout, "ERR": sys.stderr}
 
 LOGGING_LEVEL = "INFO"
 BASIC_LOGGING_FORMAT = "%(message)s"
-DEV_LOGGING_FMT = "[%(asctime)s] %(module)s:%(lineno)d [%(levelname)s] > %(message)s "
+DEV_LOGGING_FMT = "[%(asctime)s] {%(name)s} %(module)s:%(lineno)d [%(levelname)s] > %(message)s "
 TRACE_LEVEL_VALUE = 5
 TRACE_LEVEL_NAME = "TRACE"
 
@@ -99,8 +99,7 @@ def logger_via_cli(opts, **kwargs):
 def setup_logger(
         stream=None, logfile=None,
         make_root=True, propagate=False, silent=False,
-        level=LOGGING_LEVEL, verbosity=None,
-        fmt=BASIC_LOGGING_FORMAT, datefmt=None):
+        level=LOGGING_LEVEL, verbosity=None, fmt=None, datefmt=None):
     """
     Establish the package-level logger.
 
@@ -233,21 +232,15 @@ def _parse_level(loglevel):
         value was unable to be parsed and interpreted as a logging level.
 
     """
-    if isinstance(loglevel, str):
+    try:
+        return int(loglevel)
+    except (TypeError, ValueError):
         try:
             return getattr(logging, loglevel.upper())
         except AttributeError:
             print("Invalid logging level: '{}'; using {}".
                   format(loglevel, LOGGING_LEVEL))
             return LOGGING_LEVEL
-    else:
-        try:
-            loglevel = int(loglevel)
-        except (TypeError, ValueError):
-            print("Invalid logging level: {}; using {}".
-                  format(loglevel, LOGGING_LEVEL))
-            loglevel = LOGGING_LEVEL
-        return loglevel
 
 
 
