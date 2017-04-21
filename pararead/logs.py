@@ -1,5 +1,6 @@
 """ Package logging functions and constants. """
 
+import argparse
 from collections import namedtuple
 import logging
 import os
@@ -11,8 +12,8 @@ __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-__all__ = ["attach_log_opts", "logger_via_cli", "setup_logger",
-           "DEV_LOGGING_FMT", "LOGLEVEL_OPTNAME",
+__all__ = ["logger_via_cli", "setup_logger",
+           "DEV_LOGGING_FMT", "LOGGING_CLI_OPTIONS", "LOGLEVEL_OPTNAME",
            "TRACE_LEVEL_NAME", "TRACE_LEVEL_VALUE"]
 
 
@@ -31,6 +32,7 @@ STREAM_OPTNAME = "stream"
 SILENCE_LOGS_OPTNAME = "silent"
 VERBOSITY_OPTNAME = "verbosity"
 LOGLEVEL_OPTNAME = "loglevel"
+LOGFILE_OPTNAME = "logfile"
 OPTNAMES = [STREAM_OPTNAME, SILENCE_LOGS_OPTNAME,
             VERBOSITY_OPTNAME, LOGLEVEL_OPTNAME]
 PARAM_BY_OPTNAME = {LOGLEVEL_OPTNAME: "level"}
@@ -57,29 +59,10 @@ LOGGING_CLI_OPTIONS = [
                {"type": int,
                 "help": "Relative measure of interest in logs; this takes "
                         "precedence over '--{}' if both are provided".
-                        format(LOGLEVEL_OPTNAME)})
+                        format(LOGLEVEL_OPTNAME)}),
+        CliOpt(("--{}".format(LOGFILE_OPTNAME), ),
+               {"help": "File to which to write logs"})
 ]
-
-
-
-def attach_log_opts(parser):
-    """
-    Attach logging options to a CLI option/argument parser.
-
-    Parameters
-    ----------
-    parser : argparse.ArgumentParser
-        CLI option/argument parser to which to add logging options.
-
-    Returns
-    -------
-    argparse.ArgumentParser
-        Given parser instance, but updated to include logging options.
-
-    """
-    for log_cli_opt in LOGGING_CLI_OPTIONS:
-        parser.add_argument(*log_cli_opt.args, **log_cli_opt.kwargs)
-    return parser
 
 
 
