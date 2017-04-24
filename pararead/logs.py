@@ -26,6 +26,7 @@ BASIC_LOGGING_FORMAT = "%(message)s"
 DEV_LOGGING_FMT = "[%(asctime)s] {%(name)s} %(module)s:%(lineno)d [%(levelname)s] > %(message)s "
 TRACE_LEVEL_VALUE = 5
 TRACE_LEVEL_NAME = "TRACE"
+CUSTOM_LEVELS = {TRACE_LEVEL_NAME: TRACE_LEVEL_VALUE}
 
 
 STREAM_OPTNAME = "stream"
@@ -154,7 +155,8 @@ def setup_logger(
     """
 
     # Enable named ultrafine logging for debugging.
-    logging.addLevelName(TRACE_LEVEL_VALUE, TRACE_LEVEL_NAME)
+    for level_name, level_value in CUSTOM_LEVELS.items():
+        logging.addLevelName(level_value, level_name)
 
     # Establish the logger.
     name = "" if make_root else PACKAGE_NAME
@@ -232,15 +234,28 @@ def _parse_level(loglevel):
         value was unable to be parsed and interpreted as a logging level.
 
     """
+    level = None
     try:
-        return int(loglevel)
+        level = int(loglevel)
     except (TypeError, ValueError):
         try:
-            return getattr(logging, loglevel.upper())
+            levelname = loglevel.upper()
         except AttributeError:
+            pass
+        else:
+            try:
+                level = getattr(logging, levelname)
+            except AttributeError:
+                try:
+                    level = CUSTOM_LEVELS[levelname]
+                except KeyError:
+                    pass
+    finally:
+        if not level:
+            level = LOGGING_LEVEL
             print("Invalid logging level: '{}'; using {}".
-                  format(loglevel, LOGGING_LEVEL))
-            return LOGGING_LEVEL
+                  format(loglevel, level))
+        return level
 
 
 
