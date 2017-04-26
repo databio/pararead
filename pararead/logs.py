@@ -12,7 +12,7 @@ __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-__all__ = ["logger_via_cli", "setup_logger",
+__all__ = ["add_logging_options", "logger_via_cli", "setup_logger",
            "DEV_LOGGING_FMT", "LOGGING_CLI_OPTIONS", "LOGLEVEL_OPTNAME",
            "TRACE_LEVEL_NAME", "TRACE_LEVEL_VALUE"]
 
@@ -64,6 +64,27 @@ LOGGING_CLI_OPTIONS = [
         CliOpt(("--{}".format(LOGFILE_OPTNAME), ),
                {"help": "File to which to write logs"})
 ]
+
+
+
+def add_logging_options(parser):
+    """
+    Augment a CLI argument parser with this package's logging options.
+    
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        CLI options and argument parser to augment with logging options.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        The input argument, supplemented with this package's logging options.
+
+    """
+    for cli_opt in LOGGING_CLI_OPTIONS:
+        parser.add_argument(*cli_opt.args, **cli_opt.kwargs)
+    return parser
 
 
 
