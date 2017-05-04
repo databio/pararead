@@ -274,8 +274,9 @@ def _parse_level(loglevel):
     finally:
         if not level:
             level = LOGGING_LEVEL
-            print("Invalid logging level: '{}'; using {}".
-                  format(loglevel, level))
+            if loglevel is not None:
+                print("Invalid logging level: '{}'".format(loglevel))
+            print("Using {} as logging level.".format(level))
         return level
 
 
