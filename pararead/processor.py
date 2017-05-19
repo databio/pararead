@@ -330,6 +330,9 @@ class ParaReadProcessor(object):
         # unaligned files, which is occasionally desirable.
         builder = reads_file_maker.ctor
         kwargs = file_builder_kwargs
+
+        # Builder has minimal requirements that must be met.
+        # Thus, those take precedence over user provisions.
         kwargs.update(reads_file_maker.kwargs)
 
         if not self.require_aligned:
@@ -348,7 +351,7 @@ class ParaReadProcessor(object):
         atexit.register(ensure_closed)
 
 
-    def run(self, chunksize=None):
+    def run(self, chunksize=None, interleave_chunk_sizes=False):
         """
         Do the processing defined partitioned across each unit (chromosome).
 
@@ -357,6 +360,9 @@ class ParaReadProcessor(object):
         chunksize : int, optional
             Number of reads per processing chunk; if unspecified, the 
             default heuristic of size s.t. each core gets ~ 4 chunks.
+        interleave_chunk_sizes : bool, default False
+            Whether to interleave reads chunk sizes. If off (default), 
+            just use the distribution that Python determines.
 
         Returns
         -------
@@ -406,10 +412,13 @@ class ParaReadProcessor(object):
                     read_chunk_keys = self.chunk_reads(
                             readsfile, chunksize=chunksize)
                 else:
-                    # Interleave chromosomes by size so that if tasks are
-                    # pre-allocated to workers, we'll get roughly even bins.
-                    read_chunk_keys = interleave_chromosomes_by_size(
-                            size_by_chromosome.items())
+                    if interleave_chunk_sizes:
+                        # Interleave chromosomes by size so that if tasks are
+                        # pre-allocated to workers, we'll get about even bins.
+                        read_chunk_keys = interleave_chromosomes_by_size(
+                                size_by_chromosome.items())
+                    else:
+                        read_chunk_keys = size_by_chromosome.keys()
 
         _LOGGER.info("Temporary files will be stored in: '{}'".
                      format(self.temp_folder))
