@@ -330,6 +330,9 @@ class ParaReadProcessor(object):
         # unaligned files, which is occasionally desirable.
         builder = reads_file_maker.ctor
         kwargs = file_builder_kwargs
+
+        # Builder has minimal requirements that must be met.
+        # Thus, those take precedence over user provisions.
         kwargs.update(reads_file_maker.kwargs)
 
         if not self.require_aligned:
