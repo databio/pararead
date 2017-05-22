@@ -37,7 +37,7 @@ LOGFILE_OPTNAME = "logfile"
 DEVMODE_OPTNAME = "logdev"
 OPTNAMES = [STREAM_OPTNAME, SILENCE_LOGS_OPTNAME,
             VERBOSITY_OPTNAME, LOGLEVEL_OPTNAME]
-PARAM_BY_OPTNAME = {LOGLEVEL_OPTNAME: "level"}
+PARAM_BY_OPTNAME = {LOGLEVEL_OPTNAME: "level", DEVMODE_OPTNAME: "devmode"}
 
 # Translation of verbosity into logging level.
 # Log message count monotonically increases in verbosity while it decreases
@@ -128,13 +128,15 @@ def logger_via_cli(opts, **kwargs):
     # Once translation's done (if needed), parse out the
     logs_cli_args = {}
     for optname in OPTNAMES:
-        optname = PARAM_BY_OPTNAME.get(optname, optname)
+        # Client must add the expected options, via the API or otherwise.
         try:
             optval = getattr(opts, optname)
         except AttributeError:
             raise AbsentOptionException(optname)
         else:
-            logs_cli_args[optname] = optval
+            # Translate the option name if needed (i.e., for discordance
+            # between the CLI version and the logger setup signature).
+            logs_cli_args[PARAM_BY_OPTNAME.get(optname, optname)] = optval
     logs_cli_args.update(kwargs)
     return setup_logger(**logs_cli_args)
 
