@@ -1,7 +1,6 @@
 """ Package logging functions and constants. """
 
 import argparse
-from collections import namedtuple
 import logging
 import os
 import sys
@@ -13,7 +12,7 @@ __email__ = "vreuter@virginia.edu"
 
 
 __all__ = ["add_logging_options", "logger_via_cli", "setup_logger",
-           "DEV_LOGGING_FMT", "DEVMODE_OPTNAME", "LOGGING_CLI_OPTIONS",
+           "DEV_LOGGING_FMT", "DEVMODE_OPTNAME",
            "LOGLEVEL_OPTNAME", "TRACE_LEVEL_NAME", "TRACE_LEVEL_VALUE"]
 
 
@@ -35,8 +34,6 @@ VERBOSITY_OPTNAME = "verbosity"
 LOGLEVEL_OPTNAME = "loglevel"
 LOGFILE_OPTNAME = "logfile"
 DEVMODE_OPTNAME = "logdev"
-OPTNAMES = [STREAM_OPTNAME, SILENCE_LOGS_OPTNAME,
-            VERBOSITY_OPTNAME, LOGLEVEL_OPTNAME]
 PARAM_BY_OPTNAME = {LOGLEVEL_OPTNAME: "level", DEVMODE_OPTNAME: "devmode"}
 
 # Translation of verbosity into logging level.
@@ -44,32 +41,28 @@ PARAM_BY_OPTNAME = {LOGLEVEL_OPTNAME: "level", DEVMODE_OPTNAME: "devmode"}
 # in logging level, making verbosity a more intuitive specification mechanism.
 LEVEL_BY_VERBOSITY = ["ERROR", "WARN", "INFO", "DEBUG"]
 
-CliOpt = namedtuple("CliOpt", field_names=["args", "kwargs"])
-LOGGING_CLI_OPTIONS = [
-        CliOpt(("--{}".format(STREAM_OPTNAME), ),
-               {"choices": list(STREAMS.keys()),
-                "help": "Standard stream to which to write logs. "
-                        "Even null will use a default as fallback "
-                        "if no logfile is given. Explicitly use '--{}' "
-                        "to silence logging.".format(SILENCE_LOGS_OPTNAME)}),
-        CliOpt(("--{}".format(SILENCE_LOGS_OPTNAME), ),
-           {"action": "store_true",
-            "help": "Silence logging"}),
-        CliOpt(("--{}".format(LOGLEVEL_OPTNAME), ),
-               {"help": "Minimum severity of interest for logging messages"}),
-        CliOpt(("--{}".format(VERBOSITY_OPTNAME), ),
-               {"type": int,
-                "help": "Relative measure of interest in logs; this takes "
-                        "precedence over '--{}' if both are provided".
-                        format(LOGLEVEL_OPTNAME)}),
-        CliOpt(("--{}".format(LOGFILE_OPTNAME), ),
-               {"help": "File to which to write logs"}),
-        CliOpt(("--{}".format(DEVMODE_OPTNAME), ),
-               {"action": "store_true",
-                "help": "Handle logging in development mode; "
-                        "perhaps among other facets, change the format to "
-                        "a more information-rich template."})
-]
+LOGGING_CLI_OPTDATA = {
+    STREAM_OPTNAME: {
+            "choices": list(STREAMS.keys()),
+            "help": "Standard stream to which to write logs. "
+                    "Even null will use a default as fallback if no logfile "
+                    "is given. Explicitly use '--{}' to silence logging.".
+                    format(SILENCE_LOGS_OPTNAME)},
+    SILENCE_LOGS_OPTNAME: {
+            "action": "store_true", "help": "Silence logging"},
+    LOGLEVEL_OPTNAME: {
+            "help": "Minimum severity of interest for logging messages"},
+    VERBOSITY_OPTNAME: {
+            "type": int,
+            "help": "Relative measure of interest in logs; this takes "
+                    "precedence over '--{}' if both are provided".
+                    format(LOGLEVEL_OPTNAME)},
+    LOGFILE_OPTNAME: {"help": "File to which to write logs"},
+    DEVMODE_OPTNAME: {
+            "action": "store_true",
+            "help": "Handle logging in development mode; perhaps among other "
+                    "facets, make the format more information-rich."}
+}
 
 
 
@@ -88,8 +81,8 @@ def add_logging_options(parser):
         The input argument, supplemented with this package's logging options.
 
     """
-    for cli_opt in LOGGING_CLI_OPTIONS:
-        parser.add_argument(*cli_opt.args, **cli_opt.kwargs)
+    for optname, optdata in LOGGING_CLI_OPTDATA.items():
+        parser.add_argument("--{}".format(optname), **optdata)
     return parser
 
 
@@ -127,7 +120,7 @@ def logger_via_cli(opts, **kwargs):
     # present within the translations mapping, use the original optname.
     # Once translation's done (if needed), parse out the
     logs_cli_args = {}
-    for optname in OPTNAMES:
+    for optname in LOGGING_CLI_OPTDATA.keys():
         # Client must add the expected options, via the API or otherwise.
         try:
             optval = getattr(opts, optname)
@@ -138,6 +131,10 @@ def logger_via_cli(opts, **kwargs):
             # between the CLI version and the logger setup signature).
             logs_cli_args[PARAM_BY_OPTNAME.get(optname, optname)] = optval
     logs_cli_args.update(kwargs)
+
+    # DEBUG
+    print("KWARGS: {}".format(logs_cli_args))
+
     return setup_logger(**logs_cli_args)
 
 
