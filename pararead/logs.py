@@ -13,8 +13,8 @@ __email__ = "vreuter@virginia.edu"
 
 
 __all__ = ["add_logging_options", "logger_via_cli", "setup_logger",
-           "DEV_LOGGING_FMT", "LOGGING_CLI_OPTIONS", "LOGLEVEL_OPTNAME",
-           "TRACE_LEVEL_NAME", "TRACE_LEVEL_VALUE"]
+           "DEV_LOGGING_FMT", "DEVMODE_OPTNAME", "LOGGING_CLI_OPTIONS",
+           "LOGLEVEL_OPTNAME", "TRACE_LEVEL_NAME", "TRACE_LEVEL_VALUE"]
 
 
 PACKAGE_NAME = os.path.basename(os.path.dirname(__file__))
@@ -34,6 +34,7 @@ SILENCE_LOGS_OPTNAME = "silent"
 VERBOSITY_OPTNAME = "verbosity"
 LOGLEVEL_OPTNAME = "loglevel"
 LOGFILE_OPTNAME = "logfile"
+DEVMODE_OPTNAME = "logdev"
 OPTNAMES = [STREAM_OPTNAME, SILENCE_LOGS_OPTNAME,
             VERBOSITY_OPTNAME, LOGLEVEL_OPTNAME]
 PARAM_BY_OPTNAME = {LOGLEVEL_OPTNAME: "level"}
@@ -62,7 +63,12 @@ LOGGING_CLI_OPTIONS = [
                         "precedence over '--{}' if both are provided".
                         format(LOGLEVEL_OPTNAME)}),
         CliOpt(("--{}".format(LOGFILE_OPTNAME), ),
-               {"help": "File to which to write logs"})
+               {"help": "File to which to write logs"}),
+        CliOpt(("--{}".format(DEVMODE_OPTNAME), ),
+               {"action": "store_true",
+                "help": "Handle logging in development mode; "
+                        "perhaps among other facets, change the format to "
+                        "a more information-rich template."})
 ]
 
 
@@ -109,10 +115,26 @@ def logger_via_cli(opts, **kwargs):
     logging.Logger
         Configured logger instance.
 
+    Raises
+    ------
+    AbsentOptionException
+        If one of the expected options isn't available in the given Namespace. 
+        Such a case suggests that a client application didn't use this 
+        module to add the expected logging options to a parser.
+
     """
-    # Translate option name to setup function parameter name as needed.
-    logs_cli_args = {PARAM_BY_OPTNAME.get(optname, optname):
-                     getattr(opts, optname) for optname in OPTNAMES}
+    # Within the key, translate the option name if needed. If it's not
+    # present within the translations mapping, use the original optname.
+    # Once translation's done (if needed), parse out the
+    logs_cli_args = {}
+    for optname in OPTNAMES:
+        optname = PARAM_BY_OPTNAME.get(optname, optname)
+        try:
+            optval = getattr(opts, optname)
+        except AttributeError:
+            raise AbsentOptionException(optname)
+        else:
+            logs_cli_args[optname] = optval
     logs_cli_args.update(kwargs)
     return setup_logger(**logs_cli_args)
 
@@ -120,7 +142,7 @@ def logger_via_cli(opts, **kwargs):
 
 def setup_logger(
         stream=None, logfile=None,
-        make_root=True, propagate=False, silent=False,
+        make_root=True, propagate=False, silent=False, devmode=False,
         level=LOGGING_LEVEL, verbosity=None, fmt=None, datefmt=None):
     """
     Establish the package-level logger.
@@ -156,6 +178,10 @@ def setup_logger(
         be turned off separately--if this is not the root logger--in 
         order to ensure that messages are not handled and emitted from a 
         potential parent to the logger built here.
+    devmode : bool, default False
+        Whether to log in development mode. Possibly among other behavioral 
+        changes to logs handling, use a more information-rich message 
+        format template.
     level : int or str
         Minimum severity threshold of a logging message to be handled.
     verbosity : int
@@ -204,9 +230,6 @@ def setup_logger(
         
         # Create and add the handler, overwriting rather than appending.
         handler = logging.FileHandler(logfile, mode='w')
-        handler.setFormatter(logging.Formatter(
-                fmt=fmt or DEV_LOGGING_FMT, datefmt=datefmt))
-        handler.setLevel(level)
     
     else:
         stream = stream or sys.stdout
@@ -225,17 +248,31 @@ def setup_logger(
                       format(stream, DEFAULT_STREAM))
                 stream_loc = DEFAULT_STREAM
         
-        # Create and add the handler.
         handler = logging.StreamHandler(stream_loc)
-        fmt = fmt or (DEV_LOGGING_FMT if level <= logging.DEBUG
-                      else BASIC_LOGGING_FORMAT)
-        handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
-        handler.setLevel(level)
 
+    # Determine format.
+    if not fmt:
+        use_dev = devmode or isinstance(handler, logging.FileHandler) or \
+                  level <= logging.DEBUG
+        fmt = DEV_LOGGING_FMT if use_dev else BASIC_LOGGING_FORMAT
+
+    handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
+    handler.setLevel(level)
     logger.addHandler(handler)
     logger.info("Configured logger '%s' using %s v%s",
                 logger.name, PACKAGE_NAME, __version__)
     return logger
+
+
+
+class AbsentOptionException(Exception):
+    """ Exception subtype suggesting that client should add log options. """
+    def __init__(self, missing_optname):
+        likely_reason = "'{}' not in the parsed options; was {} used to " \
+                        "add CLI logging options to an argument parser?". \
+                format(missing_optname, "{}.{}".format(
+                        __name__, add_logging_options.__name__))
+        super(AbsentOptionException, self).__init__(likely_reason)
 
 
 
