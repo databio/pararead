@@ -131,10 +131,6 @@ def logger_via_cli(opts, **kwargs):
             # between the CLI version and the logger setup signature).
             logs_cli_args[PARAM_BY_OPTNAME.get(optname, optname)] = optval
     logs_cli_args.update(kwargs)
-
-    # DEBUG
-    print("KWARGS: {}".format(logs_cli_args))
-
     return setup_logger(**logs_cli_args)
 
 
