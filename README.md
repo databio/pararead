@@ -6,6 +6,11 @@ using the chromosome as the unit on which to group/partition. The main model pro
 method. This makes creates a callable instance that is then mapped over chromosomes.
 
 ## Install
+User:
 ```
 pip install --user --upgrade https://github.com/databio/pararead/zipball/master
+```
+Within specific active environment:
+```
+pip install --upgrade https://github.com/databio/pararead/zipball/master
 ```
