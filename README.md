@@ -16,6 +16,6 @@ pip install --upgrade https://github.com/databio/pararead/zipball/master
 ## Developing tools that use pararead
 
 The main model provided is an abstract class called`ParaReadProcessor`, for which concrete children are created by implementing a `__call__`
-method. This makes creates a callable instance that is then mapped over chromosomes.
+method. This creates a callable instance that is then mapped over chromosomes.
 
-The concept is generally described in this early [blog post](http://databio.org/posts/tabix_files.html), which initiated the project that eventually became pararead. More details will be forthcoming.
+The concept is generally described in this early [blog post](http://databio.org/posts/tabix_files.html), which initiated the project that eventually became `pararead`. More details will be forthcoming.
