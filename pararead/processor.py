@@ -21,10 +21,8 @@ import pysam
 from .exceptions import \
     CommandOrderException, IllegalChunkException, \
     MissingOutputFileException, UnknownChromosomeException
+from .logs import setup_logger
 from .utils import *
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 """
@@ -43,6 +41,8 @@ CHUNKS_PER_CORE = 5
 CORES_PARAM_NAME = "cores"
 
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class ParaReadProcessor(object):
     """
@@ -58,16 +58,12 @@ class ParaReadProcessor(object):
 
     __metaclass__ = abc.ABCMeta
 
-    FETCH_ALL_FLAG = "ALL"
 
-
-    def __init__(self,
-                 path_reads_file, cores,
-                 outfile=None, action=None,
-                 temp_folder_parent_path=None,
-                 limit=None, allow_unaligned=False,
-                 require_new_outfile=False, by_chromosome=True,
-                 intermediate_output_type="txt", output_type="txt"):
+    def __init__(
+            self, path_reads_file, cores, outfile=None, action=None,
+            temp_folder_parent_path=None, limit=None, allow_unaligned=False,
+            require_new_outfile=False, by_chromosome=True,
+            intermediate_output_type="txt", output_type="txt"):
         """
         Regardless of subclass behavior, there is a
         set of fields that an instance should have.
@@ -112,6 +108,15 @@ class ParaReadProcessor(object):
 
         """
 
+        # Establish root logger only if client application hasn't done so.
+        # That is, create a root logger with a handler if one doesn't exist.
+        if not logging.getLogger().handlers:
+            import sys
+            global _LOGGER
+            _LOGGER = setup_logger(
+                    stream=sys.stdout, level=logging.INFO,
+                    make_root=True, propagate=False)
+
         # Initial path setup and filetype handling.
         name_reads_file = os.path.basename(path_reads_file)
         readsfile_basename, _ = os.path.splitext(name_reads_file)
@@ -135,8 +140,8 @@ class ParaReadProcessor(object):
                                  format(self.outfile))
             else:
                 _LOGGER.warn(
-                        "WARNING: Output file already exists "
-                        "and will be overwritten: '{}'".format(self.outfile))
+                        "Output file already exists and "
+                        "will be overwritten: '{}'".format(self.outfile))
 
         # Create temp folder that's deleted upon exit.
         if not temp_folder_parent_path:
@@ -230,10 +235,10 @@ class ParaReadProcessor(object):
             operation has not yet been performed.
 
         """
-        return self.fetch(READS_FILE_KEY)
+        return self.fetch_file(READS_FILE_KEY)
 
 
-    def fetch(self, file_key):
+    def fetch_file(self, file_key):
         """
         Retrieve one of the files registered with pararead.
 
@@ -318,13 +323,16 @@ class ParaReadProcessor(object):
         
         """
 
-        _LOGGER.info("Registering input file: '{}'", self.path_reads_file)
+        _LOGGER.info("Registering input file: '%s'", self.path_reads_file)
         reads_file_maker = create_reads_builder(self.path_reads_file)
 
         # Here, check_sq is necessary so that ParaRead can process
         # unaligned files, which is occasionally desirable.
         builder = reads_file_maker.ctor
         kwargs = file_builder_kwargs
+
+        # Builder has minimal requirements that must be met.
+        # Thus, those take precedence over user provisions.
         kwargs.update(reads_file_maker.kwargs)
 
         if not self.require_aligned:
@@ -343,17 +351,23 @@ class ParaReadProcessor(object):
         atexit.register(ensure_closed)
 
 
-    def run(self, chunksize=None):
+    def run(self, chunksize=None, interleave_chunk_sizes=False):
         """
         Do the processing defined partitioned across each unit (chromosome).
+
+        Parameters
+        ----------
+        chunksize : int, optional
+            Number of reads per processing chunk; if unspecified, the 
+            default heuristic of size s.t. each core gets ~ 4 chunks.
+        interleave_chunk_sizes : bool, default False
+            Whether to interleave reads chunk sizes. If off (default), 
+            just use the distribution that Python determines.
 
         Returns
         -------
         collections.Iterable of str
             Names of chromosomes for which result is non-null.
-        chunksize : int, optional
-            Number of reads per processing chunk; if unspecified, the 
-            default heuristic of size s.t. each core gets ~ 4 chunks.
         
         Raises
         ------
@@ -377,30 +391,34 @@ class ParaReadProcessor(object):
 
         if not self.by_chromosome:
             read_chunk_keys = self.chunk_reads(readsfile, chunksize=chunksize)
-        elif self.cores == 1:
-            # The chromosome-fetch function provided here knows how
-            # to interpret the flag. If overridden, the new implementation
-            # should also provide a
-            read_chunk_keys = [self.FETCH_ALL_FLAG]
         else:
             size_by_chromosome = parse_bam_header(
-                    readsfile=readsfile, chroms=self.limit,
-                    require_aligned=self.require_aligned)
-            if size_by_chromosome is None:
-                # Unaligned files lack any chrom header lines.
-                # If so, we'll get back a null to disambiguate
-                # empty filter case if permitting unaligned
-                # input. If requiring aligned input, the call
-                # will have already generated an exception to that effect.
-                _LOGGER.warn("Failed attempt to parse chromosomes as read "
-                             "chunk keys; arbitrarily chunking reads instead.")
-                read_chunk_keys = self.chunk_reads(
-                        readsfile, chunksize=chunksize)
+                readsfile=readsfile, chroms=self.limit,
+                require_aligned=self.require_aligned)
+            if self.cores == 1:
+                # TODO: handle case (unaligned input) of null return.
+                # TODO: pysam's fetch() may make this OK but not distribute.
+                read_chunk_keys = size_by_chromosome.keys()
             else:
-                # Interleave chromosomes by size so that if tasks
-                # are pre-allocated to workers, we'll get roughly even bins.
-                read_chunk_keys = \
-                    interleave_chromosomes_by_size(size_by_chromosome.items())
+                if size_by_chromosome is None:
+                    # Unaligned files lack any chrom header lines.
+                    # If so, we'll get back a null to disambiguate
+                    # empty filter case if permitting unaligned
+                    # input. If requiring aligned input, the call
+                    # will have already generated an exception to that effect.
+                    _LOGGER.warn(
+                            "Failed attempt to parse chromosomes as read "
+                            "chunk keys; arbitrarily chunking reads instead.")
+                    read_chunk_keys = self.chunk_reads(
+                            readsfile, chunksize=chunksize)
+                else:
+                    if interleave_chunk_sizes:
+                        # Interleave chromosomes by size so that if tasks are
+                        # pre-allocated to workers, we'll get about even bins.
+                        read_chunk_keys = interleave_chromosomes_by_size(
+                                size_by_chromosome.items())
+                    else:
+                        read_chunk_keys = size_by_chromosome.keys()
 
         _LOGGER.info("Temporary files will be stored in: '{}'".
                      format(self.temp_folder))
@@ -462,8 +480,7 @@ class ParaReadProcessor(object):
                     "Provide a fetch_chunk implementation "
                     "if not partitioning reads by chromosome.")
         readsfile = PARA_READ_FILES[READS_FILE_KEY]
-        reference = None if chromosome == self.FETCH_ALL_FLAG else chromosome
-        return readsfile.fetch(reference=reference, multiple_iterators=True)
+        return readsfile.fetch(reference=chromosome, multiple_iterators=True)
 
 
     def combine(self, good_chromosomes, strict=False):
@@ -602,4 +619,4 @@ class ParaReadProcessor(object):
         """
         return os.path.join(
                 self.temp_folder,
-                "{}.{}".format(chrom, self.intermediate_output_type))
+                "{}.{}".format(chrom or "ALL", self.intermediate_output_type))

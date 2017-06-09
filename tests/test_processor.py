@@ -8,7 +8,7 @@ from pysam import AlignmentFile
 
 from pararead.exceptions import \
     CommandOrderException, IllegalChunkException, \
-    MissingOutputFileException
+    MissingHeaderException, MissingOutputFileException
 from pararead.processor import ParaReadProcessor
 from tests import \
     NUM_CORES_DEFAULT, NUM_READS_BY_FILE, \
@@ -55,7 +55,8 @@ class FileRegistrationTests:
     @pytest.mark.parametrize(
             argnames="require_aligned", argvalues=[False, True])
     @pytest.mark.parametrize(
-            argnames="pysam_kwargs", argvalues=[{}, {"check_sq": False}])
+            argnames="pysam_kwargs", argvalues=[{}, {"check_sq": False}],
+            ids=lambda kwargs: str(kwargs))
     def test_adds_pysam_kwargs(self, require_aligned,
                                pysam_kwargs, remove_reads_file):
         """ Unaligned input BAM needs check_sq=False to be created. """
@@ -68,9 +69,10 @@ class FileRegistrationTests:
                 path_reads_file=PATH_UNALIGNED_FILE, action="test",
                 allow_unaligned=not require_aligned, by_chromosome=False)
 
-        if require_aligned and not pysam_kwargs:
-            with pytest.raises(ValueError):
-                processor.register_files()
+        if require_aligned:
+            exp_error = MissingHeaderException if pysam_kwargs else ValueError
+            with pytest.raises(exp_error):
+                processor.register_files(**pysam_kwargs)
         else:
             # No exception --> pass (file registration is just for effect.)
             processor.register_files(**pysam_kwargs)
@@ -96,11 +98,11 @@ class FileRegistrationTests:
 
         # The pysam readsfile shouldn't exist before register_files().
         with pytest.raises(CommandOrderException):
-            processor.readsfile()
+            processor.readsfile
 
         # Now do the registration, creating the pysam readsfile instance.
         processor.register_files()
-        readsfile = processor.readsfile()
+        readsfile = processor.readsfile
 
         # Check out the new readsfile.
         assert isinstance(readsfile, AlignmentFile)

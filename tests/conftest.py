@@ -3,8 +3,8 @@
 import pytest
 import pysam
 
-from pararead import processor, setup_pararead_logger
-from pararead.logs import DEV_LOGGING_FMT
+from pararead import processor
+from pararead.logs import setup_logger, DEV_LOGGING_FMT
 from tests import \
     IS_ALIGNED_PARAM_NAME, NAME_TEST_LOGFILE, \
     PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
@@ -98,8 +98,7 @@ def remove_reads_file(request):
 def path_logs_file(request, tmpdir):
 
     logfile = tmpdir.join(NAME_TEST_LOGFILE).strpath
-    logger = setup_pararead_logger(
-            logfile=logfile, stream_format=DEV_LOGGING_FMT)
+    logger = setup_logger(logfile=logfile, fmt=DEV_LOGGING_FMT)
 
     def clear_handlers():
         logger.handlers = []
