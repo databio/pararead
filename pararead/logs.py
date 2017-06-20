@@ -22,7 +22,7 @@ STREAMS = {"OUT": sys.stdout, "ERR": sys.stderr}
 
 LOGGING_LEVEL = "INFO"
 BASIC_LOGGING_FORMAT = "%(message)s"
-DEV_LOGGING_FMT = "[%(asctime)s] {%(name)s:%(lineno)d} [%(levelname)s] > %(message)s "
+DEV_LOGGING_FMT = "[%(asctime)s] {%(name)s:%(lineno)d} (%(funcName)s) [%(levelname)s] > %(message)s "
 TRACE_LEVEL_VALUE = 5
 TRACE_LEVEL_NAME = "TRACE"
 CUSTOM_LEVELS = {TRACE_LEVEL_NAME: TRACE_LEVEL_VALUE}
