@@ -471,16 +471,23 @@ class ParaReadProcessor(object):
 
         Returns
         -------
-        pysam.libcalignmentfile.IteratorRowRegion
-            Block of sequencing reads corresponding to given identifier
+        Iterable of pysam.AlignedSegment
 
         """
+
         if not self.by_chromosome:
             raise NotImplementedError(
                     "Provide a fetch_chunk implementation "
                     "if not partitioning reads by chromosome.")
+
         readsfile = PARA_READ_FILES[READS_FILE_KEY]
-        return readsfile.fetch(reference=chromosome, multiple_iterators=True)
+
+        # Return the chunk of reads for the given chromosome if and only
+        # if it's nonempty. Otherwise, return None.
+        if 0 == readsfile.count(chromosome):
+            return []
+        else:
+            return readsfile.fetch(chromosome, multiple_iterators=True)
 
 
     def combine(self, good_chromosomes, strict=False):
