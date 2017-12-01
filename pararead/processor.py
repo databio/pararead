@@ -455,9 +455,11 @@ class ParaReadProcessor(object):
             pass
 
         # TODO: handle non-chromosome-based case.
+        idxstats = readsfile.get_index_statistics()
+        reads_by_chrom = {istat.contig: istat.total for istat in idxstats}
         empties, nonempties = [], []
         for c in read_chunk_keys:
-            target = empties if 0 == self.get_chrom_size(c) else nonempties
+            target = empties if 0 == reads_by_chrom[c] else nonempties
             target.append(c)
 
         # Maps for order preservation. This permits arbitrary result return,
@@ -478,7 +480,7 @@ class ParaReadProcessor(object):
 
         # TODO: note the dependence on order here.
         result_by_chunk = [(c, self.empty_action(c)) for c in empties] + \
-                          list(zip(nonempties, results))
+                           list(zip(nonempties, results))
         bad_chunks, good_chunks = \
                 partition_chunks_by_null_result(result_by_chunk)
 
