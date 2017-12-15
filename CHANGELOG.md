@@ -4,7 +4,16 @@ The chosen format for this document attempts to follow the principles and
 guidelines set forth in [Keep a Changelog](http://keepachangelog.com/en/0.3.0/).
 This project adheres to [semantic versioning](http://semver.org/) as of 0.2.0.
 
-## [Unreleased]
+## [0.4.0] -Unreleased
+
+
+## [0.3.0] - 2017-06-09
+### Changed
+- A `ParaReadProcessor`'s `__call__` function is no longer applied to any 
+chromosome that's empty (i.e., to which no reads mapped). Instead, an action 
+(`empty_action`, which may be overridden) is taken for such a chromosome. 
+This frees an implementor of `ParaReadProcessor` from the need to worry about 
+empty chromosomes while allowing the flexibility for custom action in that case.
 
 ## [0.2.0] - 2017-06-09
 ### Added

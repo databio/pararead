@@ -238,6 +238,28 @@ class ParaReadProcessor(object):
         return self.fetch_file(READS_FILE_KEY)
 
 
+    @staticmethod
+    def empty_action(read_chunk_key=None):
+        """
+        Action to take when processing an empty reads chunk.
+
+        Parameters
+        ----------
+        read_chunk_key: str, optional
+            Key for the empty chunk of reads.
+
+        Returns
+        -------
+        NoneType
+            Null value is a ParaReadProcessor's default return for processing
+            an empty reads chunk.
+
+        """
+        if read_chunk_key:
+            _LOGGER.debug("Empty read chunk: {}".format(read_chunk_key))
+        return None
+
+
     def fetch_file(self, file_key):
         """
         Retrieve one of the files registered with pararead.
@@ -432,6 +454,14 @@ class ParaReadProcessor(object):
         except AttributeError:
             pass
 
+        # TODO: handle non-chromosome-based case.
+        idxstats = readsfile.get_index_statistics()
+        reads_by_chrom = {istat.contig: istat.total for istat in idxstats}
+        empties, nonempties = [], []
+        for c in read_chunk_keys:
+            target = empties if 0 == reads_by_chrom[c] else nonempties
+            target.append(c)
+
         # Maps for order preservation. This permits arbitrary result return,
         # i.e. something other than the chunk key itself, when the process
         # completes. It would be a bit simpler to filter on the results
@@ -440,15 +470,17 @@ class ParaReadProcessor(object):
         # for a particular chunk ID. That is, it may produce a result with
         # downstream meaning, and not be used simply for effect on disk.
         if self.cores == 1:
-            results = map(self, read_chunk_keys)
+            results = map(self, nonempties)
         else:
             workers = multiprocessing.Pool(self.cores)
             # The typical call to map fails to acknowledge KeyboardInterrupts.
             # This fix helps: http://stackoverflow.com/a/1408476/946721
-            results = workers.map_async(self, read_chunk_keys).get(9999999)
+
+            results = workers.map_async(self, nonempties).get(9999999)
 
         # TODO: note the dependence on order here.
-        result_by_chunk = zip(read_chunk_keys, results)
+        result_by_chunk = [(c, self.empty_action(c)) for c in empties] + \
+                           list(zip(nonempties, results))
         bad_chunks, good_chunks = \
                 partition_chunks_by_null_result(result_by_chunk)
 
@@ -471,8 +503,7 @@ class ParaReadProcessor(object):
 
         Returns
         -------
-        pysam.libcalignmentfile.IteratorRowRegion
-            Block of sequencing reads corresponding to given identifier
+        Iterable of pysam.AlignedSegment
 
         """
         if not self.by_chromosome:
@@ -480,7 +511,7 @@ class ParaReadProcessor(object):
                     "Provide a fetch_chunk implementation "
                     "if not partitioning reads by chromosome.")
         readsfile = PARA_READ_FILES[READS_FILE_KEY]
-        return readsfile.fetch(reference=chromosome, multiple_iterators=True)
+        return readsfile.fetch(chromosome, multiple_iterators=True)
 
 
     def combine(self, good_chromosomes, strict=False):
