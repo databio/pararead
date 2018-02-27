@@ -33,9 +33,13 @@ with open("pararead/_version.py", 'r') as versionfile:
     _VERSION = versionfile.readline().split()[-1].strip("\"'\n")
 
 
-# Description
-with open("README.md", 'r') as readme:
-    _LONG_DESC = readme.read()
+
+# Handle the pypi README formatting.
+try:
+    import pypandoc
+    _LONG_DESC = pypandoc.convert_file('README.md', 'rst')
+except(IOError, ImportError):
+    _LONG_DESC = open('README.md').read()
 
 
 setup(
@@ -45,10 +49,10 @@ setup(
     description="Parallel processing of sequencing reads",
     long_description=_LONG_DESC,
     classifiers=[
-        "Development Status :: 1 - Planning",
-        "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+        "Development Status :: 4 - Beta",
+        "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 2.7",
-        "Topic :: Scientific/Engineering :: Bioinformatics"
+        "Topic :: Scientific/Engineering :: Bio-Informatics"
     ],
     keywords="bioinformatics, ngs, sequencing",
     url="https://github.com/databio/pararead",
