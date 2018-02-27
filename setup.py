@@ -33,9 +33,13 @@ with open("pararead/_version.py", 'r') as versionfile:
     _VERSION = versionfile.readline().split()[-1].strip("\"'\n")
 
 
-# Description
-with open("README.md", 'r') as readme:
-    _LONG_DESC = readme.read()
+
+# Handle the pypi README formatting.
+try:
+    import pypandoc
+    _LONG_DESC = pypandoc.convert_file('README.md', 'rst')
+except(IOError, ImportError):
+    _LONG_DESC = open('README.md').read()
 
 
 setup(
