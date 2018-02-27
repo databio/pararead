@@ -45,10 +45,10 @@ setup(
     description="Parallel processing of sequencing reads",
     long_description=_LONG_DESC,
     classifiers=[
-        "Development Status :: 1 - Planning",
-        "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+        "Development Status :: 4 - Beta",
+        "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 2.7",
-        "Topic :: Scientific/Engineering :: Bioinformatics"
+        "Topic :: Scientific/Engineering :: Bio-Informatics"
     ],
     keywords="bioinformatics, ngs, sequencing",
     url="https://github.com/databio/pararead",

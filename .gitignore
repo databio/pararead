@@ -1,6 +1,7 @@
 # JetBrains and pytest
 .idea/
 .cache/
+dist/
 
 # Python
 *.pyc
