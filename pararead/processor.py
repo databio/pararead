@@ -514,7 +514,7 @@ class ParaReadProcessor(object):
         return readsfile.fetch(chromosome, multiple_iterators=True)
 
 
-    def combine(self, good_chromosomes, strict=False):
+    def combine(self, good_chromosomes, strict=False, chrom_sep=None):
         """
         Aggregate output from independent read chunks into single output file.
         
@@ -526,6 +526,8 @@ class ParaReadProcessor(object):
             Whether to throw an exception upon encountering a missing file. 
             If not, simply log a warning message and continue the aggregation 
             process that's underway, working with what is available.
+        chrom_sep : str
+            Delimiter between output from each chromosome.
         
         Returns
         -------
@@ -562,6 +564,10 @@ class ParaReadProcessor(object):
         # with respect to chunk(s) for which output file is missing.
         paths_combined_files = []
 
+        if len(good_chromosomes) == 1:
+            _LOGGER.debug("Just one good chromosome; ignoring delimiter.")
+            chrom_sep = None
+
         with open(self.outfile, 'w') as outfile:
             for chrom in good_chromosomes:
                 reads_chunk_output = self._tempf(chrom)
@@ -582,6 +588,8 @@ class ParaReadProcessor(object):
                 with open(reads_chunk_output, 'r') as tmpf:
                     for line in tmpf:
                         outfile.write(line)
+                if chrom_sep:
+                    outfile.write(chrom_sep)
                 paths_combined_files.append(reads_chunk_output)
 
         return paths_combined_files

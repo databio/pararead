@@ -6,7 +6,6 @@ import sys
 
 from pararead import ParaReadProcessor
 
-
 __author__ = "Vince Reuter"
 __email__ = "vince.reuter@gmail.com"
 
@@ -25,16 +24,13 @@ def _parse_cmdl(cmdl):
     return parser.parse_args(cmdl)
 
 
-
 class ReadCounter(ParaReadProcessor):
     """ Sequencing reads counter. """
-
     def __call__(self, chromosome, _=None):
         n_reads = self.readsfile.count(chromosome)
         with open(self._tempf(chromosome), 'w') as f:
             f.write("{}\t{}".format(chromosome, n_reads))
         return chromosome
-
 
 
 def main(cmdl):
@@ -46,8 +42,7 @@ def main(cmdl):
     print("Counting reads: {}".format(opts.readsfile))
     good_chromosomes = counter.run()
     print("Collecting read counts: {}".format(opts.outfile))
-    counter.combine(good_chromosomes)
-
+    counter.combine(good_chromosomes, chrom_sep="\n")
 
 
 if __name__ == "__main__":
