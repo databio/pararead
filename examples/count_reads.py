@@ -21,6 +21,8 @@ def _parse_cmdl(cmdl):
         "readsfile", help="Path to sequencing reads file.")
     parser.add_argument(
         "-O", "--outfile", required=True, help="Path to output file.")
+    parser.add_argument(
+        "-C", "--cores", required=False, default=1, help="Number of cores.")
     return parser.parse_args(cmdl)
 
 
@@ -36,7 +38,7 @@ class ReadCounter(ParaReadProcessor):
 def main(cmdl):
     """ Run the script. """
     opts = _parse_cmdl(cmdl)
-    counter = ReadCounter(opts.readsfile, cores=1,
+    counter = ReadCounter(opts.readsfile, cores=opts.cores,
                           outfile=opts.outfile, action="CountReads")
     counter.register_files()
     print("Counting reads: {}".format(opts.readsfile))
