@@ -57,7 +57,7 @@ setup(
     keywords="bioinformatics, ngs, sequencing",
     url="https://github.com/databio/pararead",
     author=u"Nathan Sheffield, Vince Reuter",
-    license="GPL2",
+    license="BSD2",
     install_requires=_DEPENDENCIES,
     test_suite="tests",
     tests_require=test_deps,
