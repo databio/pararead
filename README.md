@@ -1,7 +1,7 @@
 # Pararead: parallel processing of sequencing reads
 
 Pararead is a python package that simplifies parallel processing of DNA sequencing reads (BAM or SAM files), 
-by parallelizing across chromosomes. Pararead is build for developers of python scripts that process data read-by-read. It enables you to quickly and easily parallelize your script.
+by parallelizing across chromosomes. Pararead is built for developers of python scripts that process data read-by-read. It enables you to quickly and easily parallelize your script.
 
 ## Install
 
