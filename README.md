@@ -16,6 +16,18 @@ Or, within active environment:
 pip install --upgrade pararead
 ```
 
+## Minimum working example
+
+In the `examples` folder you can find [examples/count_reads.py](examples/count_reads.py), which will count the number of reads in a sam/bam file in parallel.
+
+Run this on your bam file like this:
+
+```
+python count_reads.py file.bam -O output.txt --cores 2
+```
+
+Look at the code to see how this is implemented.
+
 ## Developing tools that use pararead
 
 The main model provided is an abstract class called`ParaReadProcessor`, for which concrete children are created by implementing a `__call__` method. This creates a callable instance that is then mapped over chromosomes.
