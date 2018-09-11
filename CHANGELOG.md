@@ -7,6 +7,7 @@ This project adheres to [semantic versioning](http://semver.org/) as of 0.2.0.
 ## [0.5.0] -Unreleased
 ### Added
 - Added `retain_temp` argument that is useful for debugging.
+- Added more detailed example use case to demonstrate logging. 
 
 ## [0.4.0] - 2018-02-27
 ### Changed
