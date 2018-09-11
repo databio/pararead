@@ -5,6 +5,8 @@ guidelines set forth in [Keep a Changelog](http://keepachangelog.com/en/0.3.0/).
 This project adheres to [semantic versioning](http://semver.org/) as of 0.2.0.
 
 ## [0.5.0] -Unreleased
+### Added
+- Added `retain_temp` argument that is useful for debugging.
 
 ## [0.4.0] - 2018-02-27
 ### Changed
