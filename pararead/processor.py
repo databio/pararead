@@ -63,7 +63,8 @@ class ParaReadProcessor(object):
             self, path_reads_file, cores, outfile=None, action=None,
             temp_folder_parent_path=None, limit=None, allow_unaligned=False,
             require_new_outfile=False, by_chromosome=True,
-            intermediate_output_type="txt", output_type="txt"):
+            intermediate_output_type="txt", output_type="txt",
+            retain_temp=False):
         """
         Regardless of subclass behavior, there is a
         set of fields that an instance should have.
@@ -162,7 +163,9 @@ class ParaReadProcessor(object):
         def clean():
             if os.path.exists(tempfolder):
                 shutil.rmtree(tempfolder)
-        atexit.register(clean)
+        
+        if not retain_temp:
+            atexit.register(clean)
 
         # Behavior/execution parameters.
         self.cores = int(cores)
