@@ -4,7 +4,13 @@ The chosen format for this document attempts to follow the principles and
 guidelines set forth in [Keep a Changelog](http://keepachangelog.com/en/0.3.0/).
 This project adheres to [semantic versioning](http://semver.org/) as of 0.2.0.
 
-## [0.5.0] -Unreleased
+## [0.5.0] -2018-09-20
+### Added
+- Added `retain_temp` argument that is useful for debugging.
+- Added modified version of read counting example to demonstrate logging.
+
+### Changed
+- Updated the CLI for logging options
 
 ## [0.4.0] - 2018-02-27
 ### Changed

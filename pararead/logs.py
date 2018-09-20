@@ -13,11 +13,11 @@ __email__ = "vreuter@virginia.edu"
 
 __all__ = ["add_logging_options", "logger_via_cli", "setup_logger",
            "DEV_LOGGING_FMT", "DEVMODE_OPTNAME",
-           "LOGLEVEL_OPTNAME", "TRACE_LEVEL_NAME", "TRACE_LEVEL_VALUE"]
+           "TRACE_LEVEL_NAME", "TRACE_LEVEL_VALUE"]
 
 
 PACKAGE_NAME = os.path.basename(os.path.dirname(__file__))
-DEFAULT_STREAM = sys.stdout
+DEFAULT_STREAM = sys.stderr
 STREAMS = {"OUT": sys.stdout, "ERR": sys.stderr}
 
 LOGGING_LEVEL = "INFO"
@@ -28,36 +28,23 @@ TRACE_LEVEL_NAME = "TRACE"
 CUSTOM_LEVELS = {TRACE_LEVEL_NAME: TRACE_LEVEL_VALUE}
 
 
-STREAM_OPTNAME = "stream"
 SILENCE_LOGS_OPTNAME = "silent"
 VERBOSITY_OPTNAME = "verbosity"
-LOGLEVEL_OPTNAME = "loglevel"
-LOGFILE_OPTNAME = "logfile"
 DEVMODE_OPTNAME = "logdev"
-PARAM_BY_OPTNAME = {LOGLEVEL_OPTNAME: "level", DEVMODE_OPTNAME: "devmode"}
+PARAM_BY_OPTNAME = {DEVMODE_OPTNAME: "devmode"}
 
 # Translation of verbosity into logging level.
 # Log message count monotonically increases in verbosity while it decreases
 # in logging level, making verbosity a more intuitive specification mechanism.
-LEVEL_BY_VERBOSITY = ["ERROR", "WARN", "INFO", "DEBUG"]
+_WARN_REPR = "WARN"
+LEVEL_BY_VERBOSITY = ["CRITICAL", "ERROR", _WARN_REPR, "INFO", "DEBUG"]
 
 LOGGING_CLI_OPTDATA = {
-    STREAM_OPTNAME: {
-            "choices": list(STREAMS.keys()),
-            "help": "Standard stream to which to write logs. "
-                    "Even null will use a default as fallback if no logfile "
-                    "is given. Explicitly use '--{}' to silence logging.".
-                    format(SILENCE_LOGS_OPTNAME)},
     SILENCE_LOGS_OPTNAME: {
             "action": "store_true", "help": "Silence logging"},
-    LOGLEVEL_OPTNAME: {
-            "help": "Minimum severity of interest for logging messages"},
     VERBOSITY_OPTNAME: {
-            "type": int,
-            "help": "Relative measure of interest in logs; this takes "
-                    "precedence over '--{}' if both are provided".
-                    format(LOGLEVEL_OPTNAME)},
-    LOGFILE_OPTNAME: {"help": "File to which to write logs"},
+            "help": "Relative measure of interest in logs; this can be an "
+                    "integer in [0, 5], or a Python builtin logging name)"},
     DEVMODE_OPTNAME: {
             "action": "store_true",
             "help": "Handle logging in development mode; perhaps among other "
@@ -138,7 +125,7 @@ def logger_via_cli(opts, **kwargs):
 def setup_logger(
         stream=None, logfile=None,
         make_root=True, propagate=False, silent=False, devmode=False,
-        level=LOGGING_LEVEL, verbosity=None, fmt=None, datefmt=None):
+        verbosity=None, fmt=None, datefmt=None):
     """
     Establish the package-level logger.
 
@@ -177,9 +164,7 @@ def setup_logger(
         Whether to log in development mode. Possibly among other behavioral 
         changes to logs handling, use a more information-rich message 
         format template.
-    level : int or str
-        Minimum severity threshold of a logging message to be handled.
-    verbosity : int
+    verbosity : int | str
         Alternate mode of expression for logging level that better accords 
         with intuition about how to convey this. It's positively associated 
         with message volume rather than negatively so, as logging level is.
@@ -211,10 +196,7 @@ def setup_logger(
         logger.addHandler(logging.NullHandler())
         return logger
 
-    if verbosity is not None:
-        level = _level_from_verbosity(verbosity)
-    else:
-        level = _parse_level(level)
+    level = _level_from_verbosity(verbosity or LOGGING_LEVEL)
     logger.setLevel(level)
 
     # Logfile supersedes stream logging.
@@ -323,24 +305,31 @@ def _level_from_verbosity(verbosity):
     
     Parameters
     ----------
-    verbosity : int
+    verbosity : int | str
         Small integral value representing a relative measure 
-        of interest in seeing messages about program execution.
+        of interest in seeing messages about program execution,
+        or the name of a Python builtin logging level
 
     Returns
     -------
     int
-        Translation of verbosity-encoded expression of logging 
-        message interest into the encoding expected by 
-        Python's built-in logging module.
+        Numeric logging level in accordance with Python builtin logging
 
     """
-    if verbosity < 0:
-        # Allow negative value to mute even ERROR level.
-        return logging.CRITICAL
-    try:
-        # Assume reasonable value.
-        return LEVEL_BY_VERBOSITY[verbosity]
-    except IndexError:
-        # There's only so much verbosity one can request.
-        return TRACE_LEVEL_VALUE
+    if isinstance(verbosity, str):
+        v = verbosity.upper()
+        if v.startswith(_WARN_REPR):
+            v = _WARN_REPR
+        if v not in LEVEL_BY_VERBOSITY:
+            raise ValueError(
+                "Invalid logging verbosity ('{}'); choose from: "
+                "{}".format(verbosity, ", ".join(LEVEL_BY_VERBOSITY)))
+        return v
+    elif isinstance(verbosity, int):
+        # Allow negative value to mute even ERROR level but not CRITICAL.
+        # Also handle excessively high verbosity request.
+        v = min(min(verbosity, 0), len(LEVEL_BY_VERBOSITY) - 1)
+        return LEVEL_BY_VERBOSITY[v]
+    else:
+        raise TypeError("Verbosity must be string or int; got {} ({})"
+                        .format(verbosity, type(verbosity)))
