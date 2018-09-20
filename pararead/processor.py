@@ -115,7 +115,7 @@ class ParaReadProcessor(object):
             import sys
             global _LOGGER
             _LOGGER = setup_logger(
-                    stream=sys.stdout,
+                    stream=sys.stdout, level=logging.INFO,
                     make_root=True, propagate=False)
 
         # Initial path setup and filetype handling.
