@@ -18,7 +18,7 @@ pip install --upgrade pararead
 
 ## Minimum working example
 
-In the `examples` folder you can find [examples/count_reads.py](examples/count_reads.py), which will count the number of reads in a sam/bam file in parallel.
+In the `examples` folder you can find [examples/count_reads_basic.py](examples/count_reads_basic.py), which will count the number of reads in a sam/bam file in parallel.
 
 Run this on your bam file like this:
 
