@@ -209,7 +209,7 @@ def setup_logger(
         handler = logging.FileHandler(logfile, mode='w')
     
     else:
-        stream = stream or sys.stdout
+        stream = stream or DEFAULT_STREAM
 
         # Deal with possible argument types.
         if stream in [sys.stderr, sys.stdout]:
