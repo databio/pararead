@@ -112,11 +112,8 @@ class ParaReadProcessor(object):
         # Establish root logger only if client application hasn't done so.
         # That is, create a root logger with a handler if one doesn't exist.
         if not logging.getLogger().handlers:
-            import sys
             global _LOGGER
-            _LOGGER = setup_logger(
-                    stream=sys.stdout, level=logging.INFO,
-                    make_root=True, propagate=False)
+            _LOGGER = setup_logger(make_root=True, propagate=False)
 
         # Initial path setup and filetype handling.
         name_reads_file = os.path.basename(path_reads_file)

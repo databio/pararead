@@ -209,7 +209,7 @@ def setup_logger(
         handler = logging.FileHandler(logfile, mode='w')
     
     else:
-        stream = stream or sys.stdout
+        stream = stream or DEFAULT_STREAM
 
         # Deal with possible argument types.
         if stream in [sys.stderr, sys.stdout]:
@@ -316,6 +316,10 @@ def _level_from_verbosity(verbosity):
         Numeric logging level in accordance with Python builtin logging
 
     """
+    try:
+        verbosity = int(verbosity)
+    except:
+        pass
     if isinstance(verbosity, str):
         v = verbosity.upper()
         if v.startswith(_WARN_REPR):
