@@ -316,10 +316,6 @@ def _level_from_verbosity(verbosity):
         Numeric logging level in accordance with Python builtin logging
 
     """
-    try:
-        verbosity = int(verbosity)
-    except:
-        pass
     if isinstance(verbosity, str):
         v = verbosity.upper()
         if v.startswith(_WARN_REPR):
