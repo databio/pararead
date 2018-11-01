@@ -288,6 +288,33 @@ class ParaReadProcessor(object):
                     READS_FILE_KEY, ParaReadProcessor.register_files.__name__))
 
 
+
+    def check_command(self, cmd):
+        if not self.is_command_callable(cmd):
+            raise OSError("{} is not callable".format(cmd))
+
+
+    def is_command_callable(self, command, name=""):
+        """
+        Check if command can be called.
+        :param str command: actual command to call
+        :param str name: nickname/alias by which to reference the command, optional
+        :return bool: whether given command's call succeeded
+        """
+
+        if name=="":
+            name=command
+
+        # Use `command` to see if command is callable, store exit code
+        code = os.system(
+            "command -v {0} >/dev/null 2>&1 || {{ exit 1; }}".format(command))
+
+        if code != 0:
+            alias_value = " ('{}') ".format(name) if name else " "
+            _LOGGER.debug("Command '{0}' is not callable: {1}".
+                          format(alias_value, command))
+        return not bool(code)
+
     def get_chrom_size(self, chrom):
         """
         Determine the size of the given chromosome.
@@ -659,3 +686,6 @@ class ParaReadProcessor(object):
         return os.path.join(
                 self.temp_folder,
                 "{}.{}".format(chrom or "ALL", self.intermediate_output_type))
+
+
+
