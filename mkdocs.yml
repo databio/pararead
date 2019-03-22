@@ -6,8 +6,6 @@ pypi_name: pararead
 nav:
   - Getting Started: 
     - Introduction: README.md
-  - User guides:    
-    - Tutorial: tutorial.md
   - Reference:
     - API: autodoc_build/pararead.md
     - Support: support.md
