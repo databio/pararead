@@ -328,7 +328,7 @@ def _level_from_verbosity(verbosity):
             raise ValueError(
                 "Invalid logging verbosity ('{}'); choose from: "
                 "{}".format(verbosity, ", ".join(LEVEL_BY_VERBOSITY)))
-        return v
+        return getattr(logging, v)
     elif isinstance(verbosity, int):
         # Allow negative value to mute even ERROR level but not CRITICAL.
         # Also handle excessively high verbosity request.
