@@ -118,7 +118,7 @@ class ParaReadProcessor(object):
                 raise ValueError("Output file already exists: '{}'".
                                  format(self.outfile))
             else:
-                _LOGGER.warn(
+                _LOGGER.warning(
                         "Output file already exists and "
                         "will be overwritten: '{}'".format(self.outfile))
 
@@ -356,7 +356,7 @@ class ParaReadProcessor(object):
                     # empty filter case if permitting unaligned
                     # input. If requiring aligned input, the call
                     # will have already generated an exception to that effect.
-                    _LOGGER.warn(
+                    _LOGGER.warning(
                             "Failed attempt to parse chromosomes as read "
                             "chunk keys; arbitrarily chunking reads instead.")
                     read_chunk_keys = self.chunk_reads(
@@ -453,7 +453,7 @@ class ParaReadProcessor(object):
         """
 
         if not good_chromosomes:
-            _LOGGER.warn("No successful chromosomes, so no combining.")
+            _LOGGER.warning("No successful chromosomes, so no combining.")
             return
 
         # Check that the combination request accords with the chunks
@@ -486,7 +486,7 @@ class ParaReadProcessor(object):
                                 reads_chunk_key=chrom,
                                 filepath=reads_chunk_output)
                     else:
-                        _LOGGER.warn(
+                        _LOGGER.warning(
                                 "Missing output file for reads chunk '%s', "
                                 "skipping: '%s'", chrom, reads_chunk_output)
                         continue
