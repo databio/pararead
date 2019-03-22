@@ -35,7 +35,7 @@ class ConstructorTests:
             ParaReadProcessor(path_reads_file="dummy.bam",
                               cores=NUM_CORES_DEFAULT, outfile="dummy.txt")
         # As a fallback, check that the exception message mentions "abstract."
-        assert "abstract" in exc.value.message
+        assert "abstract" in str(exc.value)
 
 
     @pytest.mark.parametrize(
@@ -249,7 +249,7 @@ class CombinerTests:
         with pytest.raises(IllegalChunkException) as error:
             fixed_tempfolder_processor.combine(
                     extant_read_chunks + [bad_chunk_name])
-        assert bad_chunk_name in error.value.message
+        assert bad_chunk_name in str(error.value)
 
 
     @pytest.fixture(scope="function")
