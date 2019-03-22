@@ -1,0 +1,25 @@
+site_name: Pararead
+site_url: http://code.databio.org/pararead/
+repo_url: http://github.com/databio/pararead
+pypi_name: pararead
+
+nav:
+  - Getting Started: 
+    - Introduction: README.md
+  - User guides:    
+    - Tutorial: tutorial.md
+  - Reference:
+    - API: autodoc_build/pararead.md
+    - Support: support.md
+    - Contributing: contributing.md
+    - Changelog: changelog.md
+
+theme: databio
+
+plugins:
+  - databio:
+      autodoc_build: "docs/autodoc_build"
+      autodoc_package: "pararead"
+      no_top_level: true
+  - search
+
