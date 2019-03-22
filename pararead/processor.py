@@ -665,7 +665,7 @@ class ParaReadProcessor(object):
             chunksize = int(num_reads / num_chunks)
 
         return itertools.groupby(
-            enumerate(readsfile), key=lambda (i, _): int(i / chunksize))
+            enumerate(readsfile), key=lambda i, _: int(i / chunksize))
 
 
     def _tempf(self, chrom):
