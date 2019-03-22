@@ -332,7 +332,7 @@ def _level_from_verbosity(verbosity):
     elif isinstance(verbosity, int):
         # Allow negative value to mute even ERROR level but not CRITICAL.
         # Also handle excessively high verbosity request.
-        v = min(min(verbosity, 0), len(LEVEL_BY_VERBOSITY) - 1)
+        v = min(max(verbosity, 0), len(LEVEL_BY_VERBOSITY) - 1)
         return LEVEL_BY_VERBOSITY[v]
     else:
         raise TypeError("Verbosity must be string or int; got {} ({})"
