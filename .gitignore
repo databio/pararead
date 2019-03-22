@@ -16,3 +16,4 @@ dist/
 .eggs/
 pararead.egg-info/
 
+docs/autodoc_build/
