@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 import sys
-from _version import __version__
+from ._version import __version__
 
 
 __author__ = "Vince Reuter"
