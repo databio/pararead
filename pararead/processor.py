@@ -58,7 +58,6 @@ class ParaReadProcessor(object):
 
     __metaclass__ = abc.ABCMeta
 
-
     def __init__(
             self, path_reads_file, cores, outfile=None, action=None,
             temp_folder_parent_path=None, limit=None, allow_unaligned=False,
@@ -66,47 +65,29 @@ class ParaReadProcessor(object):
             intermediate_output_type="txt", output_type="txt",
             retain_temp=False):
         """
-        Regardless of subclass behavior, there is a
-        set of fields that an instance should have.
-
-        Parameters
-        ----------
-        path_reads_file : str
-            Data location (aligned BAM/SAM file).
-        cores : int | str
-            Number of processors to use.
-        outfile : str, optional
-            Path to location for output file. Either this
-            or `action` is required.
-        action : str, optional
-            What the child class is doing, used to
-            derive outfile name if unspecified. If
-            `outfile` is unspecified, this is required.
-        temp_folder_parent_path : str, optional
-            Temporary folder. If unspecified, this will
-            match the folder containing the output file.
-        limit : list of str, optional
-            Which chromosomes to process, process all by default.
-        allow_unaligned : bool, default True
-            Whether to allow unaligned reads.
-        require_new_outfile : bool
-            Whether to raise an exception if output file already exists.
-        by_chromosome : bool, default True
-            Whether to chunk reads on a per-chromosome basis, 
-            implicitly imposing requirement for aligned reads.
-        intermediate_output_type : str, optional
-            Type of output file generated for each chunk of reads processed.
-        output_type : str, optional
-            Type of final output file generated. This is used by both 
-            intermediate files that are created and by the combine() 
+        :param str path_reads_file: data location (aligned BAM/SAM file).
+        :param int | str cores: number of processors to use.
+        :param str outfile: path to location for output file; either this
+            or action is required.
+        :param str action: name for what the child class is doing, used to
+            derive outfile name if unspecified; if outfile is unspecified,
+            this is required.
+        :param str temp_folder_parent_path: temporary folder; if unspecified,
+            this will match the folder containing the output file.
+        :param list[str] limit: which chromosomes to process, process all by
+            default.
+        :param bool allow_unaligned: whether to allow unaligned reads.
+        :param bool require_new_outfile: whether to raise an exception if
+            output file already exists.
+        :param bool by_chromosome: whether to chunk reads on a per-chromosome
+            basis, implicitly imposing requirement for aligned reads.
+        :param str intermediate_output_type: type of output file generated for
+            each chunk of reads processed.
+        :param str output_type: type of final output file generated; this is
+            used by both intermediate files that are created and by the combine()
             step that creates final output.
-
-        Raises
-        ------
-        ValueError
-            If given neither `outfile` path nor `action` action name,
-            or if output file already exists and a new one is required.
-
+        :raise ValueError: if given neither `outfile` path nor `action` action
+            name, or if output file already exists and a new one is required.
         """
 
         # Establish root logger only if client application hasn't done so.
@@ -172,7 +153,6 @@ class ParaReadProcessor(object):
         self.by_chromosome = by_chromosome
         self._size_by_chromosome = None
 
-
     @abc.abstractmethod
     def __call__(self, chunk_id, reads_chunk):
         """
@@ -186,54 +166,34 @@ class ParaReadProcessor(object):
         for the given chunk, the concrete implementation should communicate 
         this by returning None.
 
-        Parameters
-        ----------
-        chunk_id : int or str
-            Reads chunk identifier; this is passed in case it's of use 
-            in the client implementation, but for many use cases it 
-            can be ignored.
-        reads_chunk : Iterable
-            Chunk of sequencing reads to process, likely pysam.AlignedSegment.
-
-        Returns
-        -------
-        None or object
-            None if the chunk's processing failed, otherwise a non-null result.
-
+        :param int | str chunk_id: reads chunk identifier; this is passed in
+            case it's of use in the client implementation, but for many use
+            cases it can be ignored.
+        :param Iterable reads_chunk: chunk of sequencing reads to process,
+            likely pysam.AlignedSegment
+        :return NoneType | object: null if the chunk's processing failed,
+            otherwise a non-null result.
         """
         pass
-
 
     @property
     def files(self):
         """
         Refer to the pararead files mapping.
         
-        Returns
-        -------
-        dict[str, object]
-            Pararead files mapping.
-
+        :return Mapping[str, object]: pararead files mapping.
         """
         return PARA_READ_FILES
-
 
     @property
     def readsfile(self):
         """
-        
-        Returns
-        -------
-        pysam.AlignmentFile | pysam.VariantFile
-            Instance of the reads file abstraction appropriate for the 
-            given type of input data (e.g., BAM or VCF).
-
-        Raises
-        ------
-        CommandOrderException
-            If a command prerequisite for a parallel reads processor 
-            operation has not yet been performed.
-
+        :return pysam.AlignmentFile | pysam.VariantFile: instance of the reads
+            file abstraction appropriate for the given type of input data
+            (e.g., BAM or VCF).
+        :raise pararead.exceptions.CommandOrderException: if a command
+            prerequisite for a parallel reads processor operation has not yet
+            been performed.
         """
         return self.fetch_file(READS_FILE_KEY)
 
@@ -243,42 +203,20 @@ class ParaReadProcessor(object):
         """
         Action to take when processing an empty reads chunk.
 
-        Parameters
-        ----------
-        read_chunk_key: str, optional
-            Key for the empty chunk of reads.
-
-        Returns
-        -------
-        NoneType
-            Null value is a ParaReadProcessor's default return for processing
-            an empty reads chunk.
-
+        :param str read_chunk_key: key for the empty chunk of reads.
         """
         if read_chunk_key:
             _LOGGER.debug("Empty read chunk: {}".format(read_chunk_key))
-        return None
-
 
     def fetch_file(self, file_key):
         """
         Retrieve one of the files registered with pararead.
 
-        Parameters
-        ----------
-        file_key : str
-            Which file to fetch.
-
-        Returns
-        -------
-        object, likely pysam.AlignmentFile
-            File ADT instance associated with the requested key.
-
-        Raises
-        ------
-        CommandOrderException
-            If the indicated file hasn't been registered.
-
+        :param str file_key: which file to fetch
+        :return object: likely pysam.AlignmentFile -- file ADT instance
+            associated with the requested key.
+        :raise pararead.exceptions.CommandOrderException: if the indicated file
+            hasn't been registered.
         """
         try:
             return self.files[file_key]
@@ -287,28 +225,29 @@ class ParaReadProcessor(object):
                 "No {} established; has {} been called?".format(
                     READS_FILE_KEY, ParaReadProcessor.register_files.__name__))
 
-
-
     def check_command(self, cmd):
+        """
+        Determine whether it appears that a command may be run.
+
+        :param str cmd: command to check for runnability
+        :return OSError: if it's possible to verify that running given command
+            would fail
+        """
         if not self.is_command_callable(cmd):
             raise OSError("{} is not callable".format(cmd))
-
 
     def is_command_callable(self, command, name=""):
         """
         Check if command can be called.
+
         :param str command: actual command to call
-        :param str name: nickname/alias by which to reference the command, optional
+        :param str name: nickname/alias by which to reference the command
         :return bool: whether given command's call succeeded
         """
-
-        if name=="":
-            name=command
-
+        name = name or command
         # Use `command` to see if command is callable, store exit code
         code = os.system(
             "command -v {0} >/dev/null 2>&1 || {{ exit 1; }}".format(command))
-
         if code != 0:
             alias_value = " ('{}') ".format(name) if name else " "
             _LOGGER.debug("Command '{0}' is not callable: {1}".
@@ -319,23 +258,12 @@ class ParaReadProcessor(object):
         """
         Determine the size of the given chromosome.
         
-        Parameters
-        ----------
-        chrom : str
-            Name of chromosome of interest.
-
-        Returns
-        -------
-        int
-            Size of chromosome of interest.
-
-        Raises
-        ------
-        CommandOrderException
-            If there's no chromosome sizes map yet.
-        UnknownChromosomeException
-            If requested chromosome is not in the sizes map.
-
+        :param str chrom: name of chromosome of interest.
+        :return int: size of chromosome of interest.
+        :raise pararead.exceptions.CommandOrderException: if there's no
+            chromosome sizes map yet.
+        :raise pararead.exceptions.UnknownChromosomeException: if requested
+            chromosome is not in the sizes map.
         """
         if not self._size_by_chromosome:
             raise CommandOrderException(
@@ -351,25 +279,9 @@ class ParaReadProcessor(object):
     def register_files(self, **file_builder_kwargs):
         """
         Add to module map any large/unpicklable variables required by __call__.
-        
-        Parameters
-        ----------
-        **file_builder_kwargs
-            Arbitrary keyword arguments for the pysam file constructor.
-            
-        
-        Warnings
-        --------
-        A subclass overriding this method should be sure to register the 
-        file passed to the constructor, or call this method from the 
-        overriding implementation.
-        
-        Raises
-        ------
-        FileTypeException
-            If the path to the reads file given doesn't appear 
-            to match one of the supported file types.
-        
+
+        :raise pararead.exceptions.FileTypeException: if path to the reads file
+            given doesn't appear to match one of the supported file types.
         """
 
         _LOGGER.info("Registering input file: '%s'", self.path_reads_file)
@@ -399,31 +311,20 @@ class ParaReadProcessor(object):
                 readsfile.close()
         atexit.register(ensure_closed)
 
-
     def run(self, chunksize=None, interleave_chunk_sizes=False):
         """
         Do the processing defined partitioned across each unit (chromosome).
 
-        Parameters
-        ----------
-        chunksize : int, optional
-            Number of reads per processing chunk; if unspecified, the 
-            default heuristic of size s.t. each core gets ~ 4 chunks.
-        interleave_chunk_sizes : bool, default False
-            Whether to interleave reads chunk sizes. If off (default), 
-            just use the distribution that Python determines.
-
-        Returns
-        -------
-        collections.Iterable of str
-            Names of chromosomes for which result is non-null.
-        
-        Raises
-        ------
-        MissingHeaderException
-            If attempting to run with an unaligned reads file 
-            in the context of an aligned file requirement.
-
+        :param int chunksize: number of reads per processing chunk; if
+            unspecified, the default heuristic of size s.t. each core gets ~ 4
+            chunks.
+        :param bool interleave_chunk_sizes: whether to interleave reads chunk
+            sizes. If off (default), just use the distribution that Python
+            determines.
+        :return Iterable[str]: names of chromosomes for which result is non-null.
+        :raise pararead.exception.MissingHeaderException: if attempting to run
+            with an unaligned reads file in the context of an aligned file
+            requirement.
         """
         # Because this class is a function class (implements __call__), I can
         # call "self()" as a function, which is what runs the match function
@@ -518,20 +419,12 @@ class ParaReadProcessor(object):
 
         return good_chunks
 
-
     def fetch_chunk(self, chromosome):
         """
         Pull a chunk of sequencing reads from a file.
         
-        Parameters
-        ----------
-        chromosome : str
-            Identifier for chunk of reads to select.
-
-        Returns
-        -------
-        Iterable of pysam.AlignedSegment
-
+        :param str chromosome: identifier for chunk of reads to select.
+        :return Iterable[pysam.AlignedSegment]: collection of aligned reads
         """
         if not self.by_chromosome:
             raise NotImplementedError(
@@ -540,36 +433,23 @@ class ParaReadProcessor(object):
         readsfile = PARA_READ_FILES[READS_FILE_KEY]
         return readsfile.fetch(chromosome, multiple_iterators=True)
 
-
     def combine(self, good_chromosomes, strict=False, chrom_sep=None):
         """
         Aggregate output from independent read chunks into single output file.
         
-        Parameters
-        ----------
-        good_chromosomes : Iterable of str
-            Identifier (e.g., chromosome) for each chunk of reads processed.
-        strict : bool
-            Whether to throw an exception upon encountering a missing file. 
-            If not, simply log a warning message and continue the aggregation 
-            process that's underway, working with what is available.
-        chrom_sep : str
-            Delimiter between output from each chromosome.
-        
-        Returns
-        -------
-        Iterable of str
-            Path to each file successfully combined.
-        
-        Raises
-        ------
-        MissingOutputFileException
-            If executing in strict mode, and there's a reads chunk key for 
-            which the derived filepath does not exist.
-        IllegalChunkException
-            If a chunk of reads outside of those declared to be of interest 
-            is requested to participate in the combination.
-        
+        :param Iterable[str] good_chromosomes: identifier (e.g., chromosome)
+            for each chunk of reads processed.
+        :param bool strict: whether to throw an exception upon encountering a
+            missing file. If not, simply log a warning message and continue the
+            aggregation process that's underway, working with what is available.
+        :param str chrom_sep: delimiter between output from each chromosome.
+        :return Iterable[str]: path to each file successfully combined.
+        :raise pararead.exceptions.MissingOutputFileException: if executing in
+            strict mode, and there's a reads chunk key for which the derived
+            filepath does not exist.
+        :raise pararead.exceptions.IllegalChunkException: if a chunk of reads
+            outside of those declared to be of interest is requested to
+            participate in the combination.
         """
 
         if not good_chromosomes:
@@ -621,7 +501,6 @@ class ParaReadProcessor(object):
 
         return paths_combined_files
 
-
     @pending_feature
     def chunk_reads(self, readsfile, chunksize=None):
         """
@@ -632,23 +511,16 @@ class ParaReadProcessor(object):
         but it means that reads from the same chromosome will not be 
         processed together. This can be overridden if that's desired.
 
-        Parameters
-        ----------
-        readsfile : Iterable, likely pysam.AlignmentFile or pysam.VariantFile
-            Reads to split into chunks.
-        chunksize : int
-            Number of units (i.e., reads) per processing chunk. 
+        :param Iterable readsfile: collection of reads to chunk, likely
+            pysam.AlignmentFile pysam.VariantFile; reads to split into chunks.
+        :param int chunksize: number of units (i.e., reads) per processing chunk.
             If unspecified, this is derived using the instance's 
             cores count and chunks-per-core parameter, along with 
             a count of the number of units (reads). Note that if 
             this is unspecified, there will be some additional time 
             used to count the reads to derive chunk size.
-
-        Returns
-        -------
-        Iterable of (int, itertools.groupby)
-            Pairs of chunk key/ID and chunk reads chunk itself.
-
+        :return Iterable[(int, itertools.groupby)]: pairs of chunk key/ID and
+            chunk reads chunk itself.
         """
         if not chunksize or chunksize < 1:
             _, reads_clone = itertools.tee(readsfile)
@@ -667,25 +539,14 @@ class ParaReadProcessor(object):
         return itertools.groupby(
             enumerate(readsfile), key=lambda ipair: int(ipair[0] / chunksize))
 
-
     def _tempf(self, chrom):
         """
         Derive name for temporary file from chromosome name.
 
-        Parameters
-        ----------
-        chrom : str
-            Name of chromosome (single processing partition).
-
-        Returns
-        -------
-        str
-            Name for tempfile corresponding to given unit name.
+        :param str chrom: name of chromosome (single processing partition).
+        :return str: name for tempfile corresponding to given unit name.
 
         """
         return os.path.join(
                 self.temp_folder,
                 "{}.{}".format(chrom or "ALL", self.intermediate_output_type))
-
-
-

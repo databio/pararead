@@ -19,12 +19,8 @@ class FileTypeException(Exception):
         """
         Declare filetype received and those supported.
 
-        Parameters
-        ----------
-        got : str
-            File type, name, or path of offending file.
-        known : str | collections.Iterable of str
-            Supported filetype(s).
+        :param str got: file type, name, or path of offending file.
+        :param str | Iterable[str] known: supported filetype(s).
         """
         reason = "'{}' is not among supported filetypes: {}".format(got, known)
         super(FileTypeException, self).__init__(reason)
@@ -58,7 +54,6 @@ class MissingOutputFileException(Exception):
     a filepath to the output file for each reads chunk indicated by key 
     in the argument that it receives. If one of those is missing, it may 
     be considered an exceptional case.
-    
     """
     def __init__(self, reads_chunk_key, filepath):
         reason = "Path to output file for reads chunk '{}' " \
