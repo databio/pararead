@@ -4,7 +4,7 @@
 
 This document follows guidelines from [Keep a Changelog](http://keepachangelog.com/en/0.3.0/) and  adheres to [semantic versioning](http://semver.org/).
 
-## [0.6.0] - Unreleased
+## [0.6.0] - 2019-03-25
 - Made compatible with python 3
 
 ## [0.5.0] - 2018-09-20
