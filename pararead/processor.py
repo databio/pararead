@@ -16,8 +16,6 @@ import os
 import shutil
 import tempfile
 
-import pysam
-
 from .exceptions import \
     CommandOrderException, IllegalChunkException, \
     MissingOutputFileException, UnknownChromosomeException
