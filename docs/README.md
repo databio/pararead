@@ -17,12 +17,12 @@ pip install --upgrade pararead
 
 ## Minimum working example
 
-In the [examples](https://github.com/databio/pararead/tree/master/examples) folder you can find `examples/count_reads_basic.py`, which will count the number of reads in a sam/bam file in parallel.
+In the [examples](https://github.com/databio/pararead/tree/master/examples) folder you can find `count_reads_basic.py`, which will count the number of reads in a sam/bam file in parallel.
 
 Run this on your bam file like this:
 
 ```
-python count_reads.py file.bam -O output.txt --cores 2
+python examples/count_reads.py file.bam -O output.txt --cores 2
 ```
 
 Look at the code to see how this is implemented.
