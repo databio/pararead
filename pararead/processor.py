@@ -412,10 +412,13 @@ class ParaReadProcessor(object):
         bad_chunks, good_chunks = \
                 partition_chunks_by_null_result(result_by_chunk)
 
-        _LOGGER.info("Discarding {} chunk(s) of reads: {}".
-                     format(len(bad_chunks), bad_chunks))
-        _LOGGER.info("Keeping {} chunk(s) of reads: {}".
-                     format(len(good_chunks), good_chunks))
+        if bad_chunks:
+            _LOGGER.info("Discarding {} chunk(s) of reads: {}".
+                         format(len(bad_chunks), bad_chunks))
+            _LOGGER.info("Keeping {} chunk(s) of reads: {}".
+                         format(len(good_chunks), good_chunks))
+        else:
+            _LOGGER.info("Using all reads")
 
         return good_chunks
 
