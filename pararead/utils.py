@@ -36,7 +36,6 @@ READS_FILE_MAKER = {
 }
 
 
-
 def create_reads_builder(path_reads_file):
     """
     Create the factory for a reads file.
@@ -46,22 +45,13 @@ def create_reads_builder(path_reads_file):
     the reads file factory, allowing additional keyword arguments to be 
     passed to the constructor before the reads file is created.
     
-    Parameters
-    ----------
-    path_reads_file : str
-        Path to file with sequencing reads data.
-
-    Returns
-    -------
-    ReadsFileMaker
-        A namedtuple providing the proper pysam reads file constructor and 
-        just the most basic keyword argument(s), allowing the caller to add 
-        more specific keyword arguments before creating a reads file instance.
-
-    Raises
-    FileTypeException
-        If the given filepath appears to be of an unsupported type.
-
+    :param str path_reads_file: path to file with sequencing reads data.
+    :return pararead.utils.ReadsFileMaker: a namedtuple providing the proper
+        pysam reads file constructor and just the most basic keyword
+        argument(s), allowing the caller to add more specific keyword arguments
+        before creating a reads file instance.
+    :raise pararead.exceptions.FileTypeException: if the given filepath appears
+        to be of an unsupported type.
     """
     _, extension = os.path.splitext(path_reads_file)
     filetype = extension[1:].upper()
@@ -73,7 +63,6 @@ def create_reads_builder(path_reads_file):
     return reads_file_maker
 
 
-
 def interleave_chromosomes_by_size(size_by_chromosome):
     """
     Arrange chromosome names to facilitate even binning.
@@ -81,15 +70,9 @@ def interleave_chromosomes_by_size(size_by_chromosome):
     Intersperse/interleave chromosomes such that ones at opposite ends of 
     the spectrum of sizes are adjacent.
     
-    Parameters
-    ----------
-    size_by_chromosome : Iterable of (str, int) or Mapping[str, int]
-
-    Returns
-    -------
-    Iterable of str
-        Names of chromosomes
-
+    :param Iterable[str, int] | Mapping[str, int] size_by_chromosome: pairing
+        of chromosome name and size/length
+    :return Iterable[str]: Names of chromosomes
     """
 
     if not size_by_chromosome:
@@ -123,62 +106,39 @@ def interleave_chromosomes_by_size(size_by_chromosome):
     return interleaved
 
 
-
 def make_outfile_name(readsfile_basename, processing_action, output_type):
     """
     Create a name for an output file based on action performed.
 
-    Parameters
-    ----------
-    readsfile_basename : str
-        Path-less and extension-less version of name of file of reads.
-    processing_action : str
-        Name for the processing action being performed by a
-        parallel processor of sequencing reads (i.e., a class
+    :param str readsfile_basename: path-less and extension-less version of name
+        of file of reads.
+    :param str processing_action: name for the processing action being
+        performed by a parallel processor of sequencing reads (i.e., a class
         derived from ParaReadProcessor).
-    output_type : str
-        Type of output file for which name is being created.
-
-    Returns
-    -------
-    str
-        (Fallback) name for output file, used by the
-        ParaReadProcessor constructor if a null or
-        empty output filename is provided at creation.
-
+    :param str output_type: type of output file for which name is being created.
+    :return str: (Fallback) name for output file, used by the ParaReadProcessor
+        constructor if a null or empty output filename is provided at creation.
     """
     return "{}_{}.{}".format(readsfile_basename,
                              processing_action, output_type)
-
 
 
 def parse_bam_header(readsfile, chroms=None, require_aligned=False):
     """
     Get a list of chromosomes (and lengths) in this readsfile from header.
 
-    Parameters
-    ----------
-    readsfile : pysam.libcalignmentfile.AlignmentFile
-        File with aligned sequencing reads datasets
-    chroms : collections.Iterable of str, optional
-        Chromosomes of interest. If empty/null/False,
+    :param pysam.libcalignmentfile.AlignmentFile readsfile: file with aligned
+        sequencing reads datasets
+    :param Iterable[str] chroms: chromosomes of interest; if empty/null/False,
         assume that all chromosomes with read(s) are of interest.
-    require_aligned : bool, default False
-        Whether to throw an exception if given unaligned input
-
-    Returns
-    -------
-    None or Mapping[str, int]
-        Null if no chromosomes are in the header (unaligned?) and non-strict 
-        (i.e., not requiring aligned input). Otherwise, a mapping from 
-        chromosome name to length.
-
-    Raises
-    ------
-    MissingHeaderException
-        If the reads file header lacks chromosome names (unaligned?) and 
-        strictness is imposed (raise exception for this case).
-
+    :param bool require_aligned: whether to throw an exception if given
+        unaligned input
+    :return NoneType | Mapping[str, int]: null if no chromosomes are in the
+        header (unaligned?) and non-strict (i.e., not requiring aligned input);
+        otherwise, a mapping from chromosome name to length.
+    :raise pararead.exceptions.MissingHeaderException: if the reads file header
+        lacks chromosome names (unaligned?) and strictness is imposed (raise
+        exception for this case).
     """
 
     try:
@@ -200,22 +160,14 @@ def parse_bam_header(readsfile, chroms=None, require_aligned=False):
     return {c: s for c, s in all_sizes_by_chrom.items() if c in set(chroms)}
 
 
-
 def partition_chunks_by_null_result(result_by_chromosome):
     """
     Bin chromosome name by whether processing result was null.
 
-    Parameters
-    ----------
-    result_by_chromosome : Sequence of (str, object) or Mapping[str, object]
-        Mapping from chromosome name to processing result
-
-    Returns
-    -------
-    (list of str, list of str)
-        Sequence of names of chromosomes for which result was null,
-        and an analogous sequence for those with a null result.
-
+    :param Sequence[(str, object)] | Mapping[str, object] result_by_chromosome:
+        pairs of name and result of processing
+    :return (list[str], list[str]): sequence of names of chromosomes for which
+        result was null, and an analogous sequence for those with a null result
     """
     # Ideally, the filtration strategy would be an argument.
     # Due to cPickle's disdain for anonymous functions and general
@@ -237,7 +189,6 @@ def partition_chunks_by_null_result(result_by_chromosome):
     return bad_chroms, good_chroms
 
 
-
 def pending_feature(not_yet_implemented):
     """
     Indicate that a callable's implementation is not complete or not stable.
@@ -245,22 +196,14 @@ def pending_feature(not_yet_implemented):
     This simplifies designation and application of this concept, 
     and it simplifies removal once the implementation is ready for use.
     
-    Parameters
-    ----------
-    not_yet_implemented : callable
-        The function or class not ready to be used, pending implementation.
-
-    Returns
-    -------
-    callable
-        Object that will raise NotImplementedError if called.
-
+    :param callable not_yet_implemented: the function or class not ready to be
+        used, i.e. that's pending implementation.
+    :return callable: object that will raise NotImplementedError if called.
     """
     def raise_error(*args, **kwargs):
         raise NotImplementedError("{} is not fully implemented".
                                   format(not_yet_implemented.__name__))
     return raise_error
-
 
 
 def unbuffered_write(txt):

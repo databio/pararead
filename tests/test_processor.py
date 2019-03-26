@@ -20,23 +20,8 @@ __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
-
 class ConstructorTests:
     """ Basic tests for ParaReadProcessor. """
-
-
-    def test_is_abstract(self):
-        """ ParaReadProcessor must be extended. """
-        with pytest.raises(TypeError) as exc:
-            # Provide filler arguments for ParaReadProcessor parameters
-            # in an effort to ensure that the TypeError comes from the
-            # requirement that the class is abstract, rather than from
-            # missing arguments for required parameters.
-            ParaReadProcessor(path_reads_file="dummy.bam",
-                              cores=NUM_CORES_DEFAULT, outfile="dummy.txt")
-        # As a fallback, check that the exception message mentions "abstract."
-        assert "abstract" in exc.value.message
-
 
     @pytest.mark.parametrize(
             argnames="filepath",
@@ -47,16 +32,13 @@ class ConstructorTests:
             IdentityProcessor(filepath)
 
 
-
 class FileRegistrationTests:
     """ Tests for registration of files with the ParaReadProcessor. """
-
 
     @pytest.mark.parametrize(
             argnames="require_aligned", argvalues=[False, True])
     @pytest.mark.parametrize(
-            argnames="pysam_kwargs", argvalues=[{}, {"check_sq": False}],
-            ids=lambda kwargs: str(kwargs))
+            argnames="pysam_kwargs", argvalues=[{}, {"check_sq": False}])
     def test_adds_pysam_kwargs(self, require_aligned,
                                pysam_kwargs, remove_reads_file):
         """ Unaligned input BAM needs check_sq=False to be created. """
@@ -77,13 +59,10 @@ class FileRegistrationTests:
             # No exception --> pass (file registration is just for effect.)
             processor.register_files(**pysam_kwargs)
 
-
     @pytest.mark.parametrize(
         argnames=["path_reads_file", "require_aligned"],
         argvalues=[(PATH_ALIGNED_FILE, False), (PATH_ALIGNED_FILE, True),
-                   (PATH_UNALIGNED_FILE, False)],
-        ids=lambda (rf_path, req_align):
-                    "{}; req_align={}".format(rf_path, req_align))
+                   (PATH_UNALIGNED_FILE, False)])
     def test_creates_fresh_reads_file(self, path_reads_file,
                                       require_aligned, remove_reads_file):
         """ Reads file pysam object is created by register_files(). """
@@ -110,7 +89,6 @@ class FileRegistrationTests:
         assert NUM_READS_BY_FILE[path_reads_file] == num_reads
 
 
-
 class CombinerTests:
     """ Processor provides function to combine intermediate results. """
 
@@ -124,7 +102,6 @@ class CombinerTests:
     COMBO_REQUEST_NAMES = CHROM_NAMES + ARBITRARY_NAMES
     CHUNK_NAMES = {CHROMOSOME_CHUNK_KEY: CHROM_NAMES,
                    ARBITRARY_CHUNK_KEY: ARBITRARY_NAMES}
-
 
     @pytest.mark.parametrize(
             argnames="error_if_missing", argvalues=[False, True])
@@ -144,7 +121,6 @@ class CombinerTests:
         assert 1 == len(log_records) - num_logs_before_combine
         assert "WARN" in log_records[num_logs_before_combine]
 
-
     @pytest.mark.parametrize(
             argnames="which_names",
             argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
@@ -153,7 +129,6 @@ class CombinerTests:
         """ Missing-output chunks be skipped or exceptional. """
         with pytest.raises(MissingOutputFileException):
             fixed_tempfolder_processor.combine(self.COMBO_REQUEST_NAMES, strict=True)
-
 
     @pytest.mark.parametrize(
         argnames="which_names",
@@ -165,7 +140,6 @@ class CombinerTests:
         observed_combined_filepaths = fixed_tempfolder_processor.combine(
                 self.COMBO_REQUEST_NAMES, strict=False)
         assert extant_files == observed_combined_filepaths
-
 
     @pytest.mark.parametrize(
         argnames="which_names",
@@ -192,12 +166,9 @@ class CombinerTests:
                 sum(1 for msg in logs_from_combine if "WARN" in msg)
         assert num_skips_expected == num_warns_observed
 
-
     @pytest.mark.parametrize(
         argnames=["filetype", "combined_output_type"],
-        argvalues=list(itertools.product(["bed", "tsv"], ["bed", "tsv"])),
-        ids=lambda (imd_out, end_out):
-        " intermediate={} - combined={} ".format(imd_out, end_out))
+        argvalues=list(itertools.product(["bed", "tsv"], ["bed", "tsv"])))
     @pytest.mark.parametrize(
         argnames="which_names",
         argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
@@ -230,7 +201,6 @@ class CombinerTests:
             observed_lines = combined.readlines()
         assert set(expected_lines.values()) == set(observed_lines)
 
-
     @pytest.mark.parametrize(
         argnames="which_names",
         argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
@@ -249,8 +219,7 @@ class CombinerTests:
         with pytest.raises(IllegalChunkException) as error:
             fixed_tempfolder_processor.combine(
                     extant_read_chunks + [bad_chunk_name])
-        assert bad_chunk_name in error.value.message
-
+        assert bad_chunk_name in str(error.value)
 
     @pytest.fixture(scope="function")
     def extant_files(self, request, tmpdir):
@@ -294,7 +263,6 @@ class CombinerTests:
             files.append(path_out_file.strpath)
         return files
 
-
     @pytest.fixture(scope="function")
     def fixed_tempfolder_processor(self, tmpdir, num_cores):
         """
@@ -329,7 +297,6 @@ class CombinerTests:
         processor.temp_folder = tmpdir.strpath
         return processor
 
-
     def _names_from_key(self, names_key):
         """
         Get chunk names based on an argument to a test case parameter.
@@ -352,43 +319,35 @@ class CombinerTests:
             return self.CHROM_NAMES
 
 
-
 @pytest.mark.skip("Not implemented")
 class IntegrationTests:
     """ A couple of sample end-to-end tests through a simple processor. """
     pass
 
 
-
 class FilesystemTests:
     """ Tests regarding interaction between Processor and filesystem """
-
 
     @pytest.mark.skip("Implement for context manager use only.")
     def test_removes_tempfolder(self):
         """ Folder for temporary files should be removed. """
         pass
 
-
     @pytest.mark.skip("implement for context manager use only.")
     def test_closes_readsfile(self):
         pass
 
 
-
 class ArbitraryPartitionTests:
     """ Tests for processor's run() method. """
-
 
     @pytest.mark.skip("Not implemented")
     def test_cores_count(self):
         pass
 
-
     @pytest.mark.skip("Not implemented")
     def test_chunksize_inference(self):
         pass
-
 
     @pytest.mark.skip("Not implemented")
     def test_fixed_chunksize(self):

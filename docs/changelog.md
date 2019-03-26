@@ -1,10 +1,13 @@
 # Change Log
 
-The chosen format for this document attempts to follow the principles and 
-guidelines set forth in [Keep a Changelog](http://keepachangelog.com/en/0.3.0/).
-This project adheres to [semantic versioning](http://semver.org/) as of 0.2.0.
 
-## [0.5.0] -2018-09-20
+
+This document follows guidelines from [Keep a Changelog](http://keepachangelog.com/en/0.3.0/) and  adheres to [semantic versioning](http://semver.org/).
+
+## [0.6.0] - 2019-03-25
+- Made compatible with python 3
+
+## [0.5.0] - 2018-09-20
 ### Added
 - Added `retain_temp` argument that is useful for debugging.
 - Added modified version of read counting example to demonstrate logging.

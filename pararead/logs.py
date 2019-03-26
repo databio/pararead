@@ -52,26 +52,18 @@ LOGGING_CLI_OPTDATA = {
 }
 
 
-
 def add_logging_options(parser):
     """
     Augment a CLI argument parser with this package's logging options.
     
-    Parameters
-    ----------
-    parser : argparse.ArgumentParser
-        CLI options and argument parser to augment with logging options.
-
-    Returns
-    -------
-    argparse.ArgumentParser
-        The input argument, supplemented with this package's logging options.
-
+    :param argparse.ArgumentParser parser: CLI options and argument parser to
+        augment with logging options.
+    :return argparse.ArgumentParser: the input argument, supplemented with this
+        package's logging options.
     """
     for optname, optdata in LOGGING_CLI_OPTDATA.items():
         parser.add_argument("--{}".format(optname), **optdata)
     return parser
-
 
 
 def logger_via_cli(opts, **kwargs):
@@ -83,24 +75,12 @@ def logger_via_cli(opts, **kwargs):
     intimate knowledge of the implementation. This function completes that 
     lack of burden, parsing values for the options supplied herein.
     
-    Parameters
-    ----------
-    opts : argparse.Namespace
-        Command-line options/arguments parsed from command line.
-    **kwargs : dict
-        Additional keyword arguments to the logger configuration function.
-
-    Returns
-    -------
-    logging.Logger
-        Configured logger instance.
-
-    Raises
-    ------
-    AbsentOptionException
-        If one of the expected options isn't available in the given Namespace. 
-        Such a case suggests that a client application didn't use this 
-        module to add the expected logging options to a parser.
+    :param argparse.Namespace opts: command-line options/arguments.
+    :return logging.Logger: configured logger instance.
+    :raise pararead.logs.AbsentOptionException: if one of the expected options
+        isn't available in the given Namespace. Such a case suggests that a
+        client application didn't use this module to add the expected logging
+        options to a parser.
 
     """
     # Within the key, translate the option name if needed. If it's not
@@ -121,7 +101,6 @@ def logger_via_cli(opts, **kwargs):
     return setup_logger(**logs_cli_args)
 
 
-
 def setup_logger(
         stream=None, logfile=None,
         make_root=True, propagate=False, silent=False, devmode=False,
@@ -129,55 +108,40 @@ def setup_logger(
     """
     Establish the package-level logger.
 
-    This is intended to be called just once per "session",
-    with a "session" defined as an invocation of the main
-    workflow, a testing session, or an import of the primary
-    abstractions, e.g. in an interactive iPython session.
+    This is intended to be called just once per "session", with a "session"
+    defined as an invocation of the main workflow, a testing session, or an
+    import of the primary abstractions, e.g. in an interactive iPython session.
 
-    Parameters
-    ----------
-    stream : str or None, optional
-        Standard stream to use as log destination. The default behavior is 
-        to write logs to stdout, even if null is passed here. This is to 
-        allow a CLI argument as input to stream parameter, where it may be 
+    :param str stream: standard stream to use as log destination. The default
+        behavior is to write logs to stdout, even if null is passed here. This
+        is to allow a CLI argument as input to stream parameter, where it may be
         undesirable to require specification of a default value in the client 
         application in order to prevent passing None if no CLI option value 
         is given. To disable standard stream logging, set 'silent' to True 
         or pass a path to a file to which to write logs, which gets priority 
         over a standard stream as the destination for log messages.
-    logfile : str or FileIO[str], optional
-        Path to filesystem location to use as logs destination. 
-        If provided, this mutes logging to a standard output stream.
-    make_root : bool, default True
-        Whether to use returned logger as root logger. This means that 
-        the name will be 'root' and that messages will not propagate. 
-    propagate : bool, default False
-        Whether to allow messages from this logger to reach parent logger(s).
-    silent : bool
-        Whether to silence logging. This is only guaranteed for messages from 
-        this logger and for those from loggers beneath this one in the 
-        runtime hierarchy without no separate handling. Propagation must also 
-        be turned off separately--if this is not the root logger--in 
+    :param str | FileIO[str] logfile: path to filesystem location to use as
+        logs destination. if provided, this mutes standard stream logging.
+    :param bool make_root: whether to use returned logger as root logger. This
+        means the name will be 'root' and that messages will not propagate.
+    :param bool propagate: whether to allow messages from this logger to reach
+        parent logger(s).
+    :param bool silent: whether to silence logging; this is only guaranteed for
+        messages from this logger and for those from loggers beneath this one
+        in the runtime hierarchy without no separate handling. Propagation must
+        also be turned off separately--if this is not the root logger--in
         order to ensure that messages are not handled and emitted from a 
         potential parent to the logger built here.
-    devmode : bool, default False
-        Whether to log in development mode. Possibly among other behavioral 
-        changes to logs handling, use a more information-rich message 
-        format template.
-    verbosity : int | str
-        Alternate mode of expression for logging level that better accords 
-        with intuition about how to convey this. It's positively associated 
-        with message volume rather than negatively so, as logging level is.
-        This takes precedence over 'level' if both are provided.
-    fmt : str
-        Message format/template.
-    datefmt : str
-        Format/template for time component of a log record.
-
-    Returns
-    -------
-    logging.Logger
-        Configured logger instance.
+    :param bool devmode: whether to log in development mode; possibly among
+        other behavioral changes to logs handling, use a more information-rich
+        message format template.
+    :param int | str verbosity: alternate mode of expression for logging level
+        that better accords with intuition about how to convey this. It's
+        positively associated with message volume rather than negatively so, as
+        logging level is. This takes precedence over 'level' if both are present.
+    :param str fmt: message format/template.
+    :param str datefmt: format/template for time component of a log record.
+    :return logging.Logger: configured Logger instance
 
     """
 
@@ -209,7 +173,7 @@ def setup_logger(
         handler = logging.FileHandler(logfile, mode='w')
     
     else:
-        stream = stream or sys.stdout
+        stream = stream or DEFAULT_STREAM
 
         # Deal with possible argument types.
         if stream in [sys.stderr, sys.stdout]:
@@ -241,7 +205,6 @@ def setup_logger(
     return logger
 
 
-
 class AbsentOptionException(Exception):
     """ Exception subtype suggesting that client should add log options. """
     def __init__(self, missing_optname):
@@ -252,21 +215,13 @@ class AbsentOptionException(Exception):
         super(AbsentOptionException, self).__init__(likely_reason)
 
 
-
 def _parse_level(loglevel):
     """
     Handle pitfalls of logging level specification, using fallback value.
 
-    Parameters
-    ----------
-    loglevel : int or str
-        Value or name of value for logging level to use.
-
-    Returns
-    -------
-    int
-        Integer representation of the input value, or a default if the given 
-        value was unable to be parsed and interpreted as a logging level.
+    :param int | str loglevel : Value or name of value for logging level to use.
+    :return int: Integer representation of the input value, or a default if the
+        given value was unable to be parsed and interpreted as a logging level.
 
     """
     level = None
@@ -294,7 +249,6 @@ def _parse_level(loglevel):
         return level
 
 
-
 def _level_from_verbosity(verbosity):
     """
     Translation of verbosity into logging level.
@@ -302,20 +256,17 @@ def _level_from_verbosity(verbosity):
     Log message count monotonically increases in verbosity 
     while it decreases in logging level, making verbosity 
     a more intuitive specification mechanism for users.
-    
-    Parameters
-    ----------
-    verbosity : int | str
-        Small integral value representing a relative measure 
-        of interest in seeing messages about program execution,
-        or the name of a Python builtin logging level
 
-    Returns
-    -------
-    int
-        Numeric logging level in accordance with Python builtin logging
+    :param int | str verbosity: small integral value representing a relative
+        measure of interest in seeing messages about program execution,
+        or the name of a Python builtin logging level
+    :return int: numeric logging level in accordance with Python builtin logging
 
     """
+    try:
+        verbosity = int(verbosity)
+    except:
+        pass
     if isinstance(verbosity, str):
         v = verbosity.upper()
         if v.startswith(_WARN_REPR):
@@ -324,11 +275,11 @@ def _level_from_verbosity(verbosity):
             raise ValueError(
                 "Invalid logging verbosity ('{}'); choose from: "
                 "{}".format(verbosity, ", ".join(LEVEL_BY_VERBOSITY)))
-        return v
+        return getattr(logging, v)
     elif isinstance(verbosity, int):
         # Allow negative value to mute even ERROR level but not CRITICAL.
         # Also handle excessively high verbosity request.
-        v = min(min(verbosity, 0), len(LEVEL_BY_VERBOSITY) - 1)
+        v = min(max(verbosity, 0), len(LEVEL_BY_VERBOSITY) - 1)
         return LEVEL_BY_VERBOSITY[v]
     else:
         raise TypeError("Verbosity must be string or int; got {} ({})"

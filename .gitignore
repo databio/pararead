@@ -2,6 +2,7 @@
 .idea/
 .cache/
 dist/
+.coverage
 
 # Python
 *.pyc
@@ -15,4 +16,5 @@ dist/
 # Build
 .eggs/
 pararead.egg-info/
+docs/autodoc_build/
 
