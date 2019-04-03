@@ -215,40 +215,6 @@ class AbsentOptionException(Exception):
         super(AbsentOptionException, self).__init__(likely_reason)
 
 
-def _parse_level(loglevel):
-    """
-    Handle pitfalls of logging level specification, using fallback value.
-
-    :param int | str loglevel : Value or name of value for logging level to use.
-    :return int: Integer representation of the input value, or a default if the
-        given value was unable to be parsed and interpreted as a logging level.
-
-    """
-    level = None
-    try:
-        level = int(loglevel)
-    except (TypeError, ValueError):
-        try:
-            levelname = loglevel.upper()
-        except AttributeError:
-            pass
-        else:
-            try:
-                level = getattr(logging, levelname)
-            except AttributeError:
-                try:
-                    level = CUSTOM_LEVELS[levelname]
-                except KeyError:
-                    pass
-    finally:
-        if not level:
-            level = LOGGING_LEVEL
-            if loglevel is not None:
-                print("Invalid logging level: '{}'".format(loglevel))
-            print("Using {} as logging level.".format(level))
-        return level
-
-
 def _level_from_verbosity(verbosity):
     """
     Translation of verbosity into logging level.
