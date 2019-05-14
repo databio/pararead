@@ -1,2 +1,1 @@
-pysam
-
+pysam>=0.13
