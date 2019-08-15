@@ -136,7 +136,7 @@ class CombinerTests:
         argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
     def test_missing_output_files_non_strict_retval(
             self, which_names, extant_files,
-            fixed_tempfolder_processor, path_logs_file):
+            fixed_tempfolder_processor):
         """ Combiner returns just the paths that were used. """
         observed_combined_filepaths = fixed_tempfolder_processor.combine(
                 self.COMBO_REQUEST_NAMES, strict=False)
@@ -206,9 +206,10 @@ class CombinerTests:
     @pytest.mark.parametrize(
         argnames="which_names",
         argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
+
     def test_enforces_chunks_limit(
             self, which_names, extant_files, 
-            fixed_tempfolder_processor, path_logs_file):
+            fixed_tempfolder_processor):
         """ Combination applies only to chunks of interest. """
 
         # Tell the processor that only certain chunks are of interest.

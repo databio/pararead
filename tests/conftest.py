@@ -4,7 +4,7 @@ import pytest
 import pysam
 
 from pararead import processor
-from logmuse import setup_logger, DEV_LOGGING_FMT
+# from logmuse import setup_logger, DEV_LOGGING_FMT
 from tests import \
     IS_ALIGNED_PARAM_NAME, NAME_TEST_LOGFILE, \
     PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
@@ -95,6 +95,7 @@ def remove_reads_file(request):
 
 
 @pytest.fixture(scope="function")
+@pytest.mark.skip
 def path_logs_file(request, tmpdir):
 
     logfile = tmpdir.join(NAME_TEST_LOGFILE).strpath
