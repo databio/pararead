@@ -105,6 +105,7 @@ class CombinerTests:
 
     @pytest.mark.parametrize(
             argnames="error_if_missing", argvalues=[False, True])
+    @pytest.mark.skip
     def test_nothing_to_combine(self, tmpdir, path_logs_file,
                                 num_cores, error_if_missing):
         """ Complete lack of output is sufficient to warrant a warning. """
@@ -144,6 +145,7 @@ class CombinerTests:
     @pytest.mark.parametrize(
         argnames="which_names",
         argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY])
+    @pytest.mark.skip
     def test_missing_output_files_non_strict_messaging(
             self, which_names, extant_files,
             fixed_tempfolder_processor, path_logs_file):

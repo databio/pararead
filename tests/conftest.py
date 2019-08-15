@@ -4,7 +4,7 @@ import pytest
 import pysam
 
 from pararead import processor
-from pararead.logs import setup_logger, DEV_LOGGING_FMT
+from logmuse import setup_logger, DEV_LOGGING_FMT
 from tests import \
     IS_ALIGNED_PARAM_NAME, NAME_TEST_LOGFILE, \
     PATH_ALIGNED_FILE, PATH_UNALIGNED_FILE
