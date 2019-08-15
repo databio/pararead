@@ -25,8 +25,12 @@ def _parse_cmdl(cmdl):
 
     parser.add_argument(
         "-O", "--outfile", required=True, help="Path to output file.")
+
     parser.add_argument(
         "-C", "--cores", required=False, default=1, help="Number of cores.")
+
+    parser.add_argument('-t', '--limit', dest='limit',
+        help="Limit to these chromosomes", nargs = "+", default=None)
 
     parser = logmuse.add_logging_options(parser)
     return parser.parse_args(cmdl)
@@ -60,7 +64,8 @@ def main(cmdl):
 
     _LOGGER.debug("Creating counter")
     counter = ReadCounter(args.readsfile, cores=args.cores,
-                          outfile=args.outfile, action="CountReads")
+                          outfile=args.outfile, action="CountReads", 
+                          limit=args.limit)
     _LOGGER.debug("Registering files")
     counter.register_files()
 
