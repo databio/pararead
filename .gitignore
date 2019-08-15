@@ -10,9 +10,6 @@ dist/
 # Track dependencies
 !requirements/*.txt
 
-# Output
-*.txt
-
 # Build
 .eggs/
 pararead.egg-info/
