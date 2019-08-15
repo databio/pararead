@@ -35,7 +35,17 @@ def _parse_cmdl(cmdl):
 class ReadCounter(ParaReadProcessor):
     """ Sequencing reads counter. """
     def __call__(self, chromosome, _=None):
-        n_reads = self.readsfile.count(chromosome)
+        # doesn't work because count can't handle multiple iterators
+        # n_reads = self.readsfile.count(chromosome)
+
+        # Here we want to go through each read and do what we need.
+        # In this simple example, all we're doing is counting them.
+        n_reads = 0
+        reads = self.fetch_chunk(chromosome)
+        for read in reads:
+            n_reads += 1
+
+        _LOGGER.debug("Chromosome: '{}'; n_reads {}".format(chromosome,n_reads))
         with open(self._tempf(chromosome), 'w') as f:
             f.write("{}\t{}".format(chromosome, n_reads))
         return chromosome

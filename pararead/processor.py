@@ -384,6 +384,9 @@ class ParaReadProcessor(object):
             # The typical call to map fails to acknowledge KeyboardInterrupts.
             # This fix helps: http://stackoverflow.com/a/1408476/946721
 
+            
+            _LOGGER.debug("Cores: '{}'".format(self.cores))
+            _LOGGER.debug("Nonempties: '{}'".format(nonempties))
             results = workers.map_async(self, nonempties).get(9999999)
 
         # TODO: note the dependence on order here.
@@ -393,9 +396,9 @@ class ParaReadProcessor(object):
                 partition_chunks_by_null_result(result_by_chunk)
 
         if bad_chunks:
-            _LOGGER.info("Discarding {} chunk(s) of reads: {}".
+            _LOGGER.debug("Discarding {} chunk(s) of reads: {}".
                          format(len(bad_chunks), bad_chunks))
-            _LOGGER.info("Keeping {} chunk(s) of reads: {}".
+            _LOGGER.debug("Keeping {} chunk(s) of reads: {}".
                          format(len(good_chunks), good_chunks))
         else:
             _LOGGER.info("Using all reads")
