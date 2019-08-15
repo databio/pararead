@@ -16,10 +16,10 @@ import os
 import shutil
 import tempfile
 
+from ubiquerg import is_command_callable
 from .exceptions import \
     CommandOrderException, IllegalChunkException, \
     MissingOutputFileException, UnknownChromosomeException
-from .logs import setup_logger
 from .utils import *
 
 
@@ -88,11 +88,11 @@ class ParaReadProcessor(object):
             name, or if output file already exists and a new one is required.
         """
 
-        # Establish root logger only if client application hasn't done so.
-        # That is, create a root logger with a handler if one doesn't exist.
-        if not logging.getLogger().handlers:
-            global _LOGGER
-            _LOGGER = setup_logger(make_root=True, propagate=False)
+        # # Establish root logger only if client application hasn't done so.
+        # # That is, create a root logger with a handler if one doesn't exist.
+        # if not logging.getLogger().handlers:
+        #     global _LOGGER
+        #     _LOGGER = setup_logger(make_root=True, propagate=False)
 
         # Initial path setup and filetype handling.
         name_reads_file = os.path.basename(path_reads_file)
@@ -231,26 +231,8 @@ class ParaReadProcessor(object):
         :return OSError: if it's possible to verify that running given command
             would fail
         """
-        if not self.is_command_callable(cmd):
+        if not is_command_callable(cmd):
             raise OSError("{} is not callable".format(cmd))
-
-    def is_command_callable(self, command, name=""):
-        """
-        Check if command can be called.
-
-        :param str command: actual command to call
-        :param str name: nickname/alias by which to reference the command
-        :return bool: whether given command's call succeeded
-        """
-        name = name or command
-        # Use `command` to see if command is callable, store exit code
-        code = os.system(
-            "command -v {0} >/dev/null 2>&1 || {{ exit 1; }}".format(command))
-        if code != 0:
-            alias_value = " ('{}') ".format(name) if name else " "
-            _LOGGER.debug("Command '{0}' is not callable: {1}".
-                          format(alias_value, command))
-        return not bool(code)
 
     def get_chrom_size(self, chrom):
         """
@@ -402,6 +384,9 @@ class ParaReadProcessor(object):
             # The typical call to map fails to acknowledge KeyboardInterrupts.
             # This fix helps: http://stackoverflow.com/a/1408476/946721
 
+            
+            _LOGGER.debug("Cores: '{}'".format(self.cores))
+            _LOGGER.debug("Nonempties: '{}'".format(nonempties))
             results = workers.map_async(self, nonempties).get(9999999)
 
         # TODO: note the dependence on order here.
@@ -411,9 +396,9 @@ class ParaReadProcessor(object):
                 partition_chunks_by_null_result(result_by_chunk)
 
         if bad_chunks:
-            _LOGGER.info("Discarding {} chunk(s) of reads: {}".
+            _LOGGER.debug("Discarding {} chunk(s) of reads: {}".
                          format(len(bad_chunks), bad_chunks))
-            _LOGGER.info("Keeping {} chunk(s) of reads: {}".
+            _LOGGER.debug("Keeping {} chunk(s) of reads: {}".
                          format(len(good_chunks), good_chunks))
         else:
             _LOGGER.info("Using all reads")

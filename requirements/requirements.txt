@@ -1,2 +1,2 @@
-pysam
-
+pysam>=0.13
+ubiquerg>=0.4.5
