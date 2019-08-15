@@ -4,7 +4,7 @@
 import argparse
 import sys
 
-from pararead import add_logging_options, ParaReadProcessor
+from pararead import ParaReadProcessor
 import logmuse
 
 
@@ -28,7 +28,7 @@ def _parse_cmdl(cmdl):
     parser.add_argument(
         "-C", "--cores", required=False, default=1, help="Number of cores.")
 
-    parser = add_logging_options(parser)
+    parser = logmuse.add_logging_options(parser)
     return parser.parse_args(cmdl)
 
 
@@ -43,11 +43,10 @@ class ReadCounter(ParaReadProcessor):
 
 def main(cmdl):
     """ Run the script. """
-    from pararead import logger_via_cli
 
     args = _parse_cmdl(cmdl)
     global _LOGGER
-    _LOGGER = logger_via_cli(args)
+    _LOGGER = logmuse.logger_via_cli(args, make_root=True)
 
     _LOGGER.debug("Creating counter")
     counter = ReadCounter(args.readsfile, cores=args.cores,
