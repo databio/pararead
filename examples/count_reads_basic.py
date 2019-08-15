@@ -10,15 +10,17 @@ __author__ = "Vince Reuter"
 __email__ = "vince.reuter@gmail.com"
 
 
-
 def _parse_cmdl(cmdl):
     """ Define and parse command-line interface. """
+
     parser = argparse.ArgumentParser(
         description="Read count as template for ParaReadProcessor "
                     "implementation",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
     parser.add_argument(
         "readsfile", help="Path to sequencing reads file.")
+    
     parser.add_argument(
         "-O", "--outfile", required=True, help="Path to output file.")
     parser.add_argument(

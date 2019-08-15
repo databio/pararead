@@ -5,6 +5,8 @@ import argparse
 import sys
 
 from pararead import add_logging_options, ParaReadProcessor
+import logmuse
+
 
 __author__ = "Vince Reuter"
 __email__ = "vince.reuter@gmail.com"
@@ -43,18 +45,19 @@ def main(cmdl):
     """ Run the script. """
     from pararead import logger_via_cli
 
-    opts = _parse_cmdl(cmdl)
-    logger = logger_via_cli(opts)
+    args = _parse_cmdl(cmdl)
+    global _LOGGER
+    _LOGGER = logger_via_cli(args)
 
-    logger.debug("Creating counter")
-    counter = ReadCounter(opts.readsfile, cores=opts.cores,
-                          outfile=opts.outfile, action="CountReads")
-    logger.debug("Registering files")
+    _LOGGER.debug("Creating counter")
+    counter = ReadCounter(args.readsfile, cores=args.cores,
+                          outfile=args.outfile, action="CountReads")
+    _LOGGER.debug("Registering files")
     counter.register_files()
 
-    logger.info("Counting reads: {}".format(opts.readsfile))
+    _LOGGER.info("Counting reads: {}".format(args.readsfile))
     good_chromosomes = counter.run()
-    logger.info("Collecting read counts: {}".format(opts.outfile))
+    _LOGGER.info("Collecting read counts: {}".format(args.outfile))
     counter.combine(good_chromosomes, chrom_sep="\n")
 
 

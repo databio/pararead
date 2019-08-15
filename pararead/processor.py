@@ -17,11 +17,9 @@ import shutil
 import tempfile
 
 from ubiquerg import is_command_callable
-
 from .exceptions import \
     CommandOrderException, IllegalChunkException, \
     MissingOutputFileException, UnknownChromosomeException
-from .logs import setup_logger
 from .utils import *
 
 
@@ -90,11 +88,11 @@ class ParaReadProcessor(object):
             name, or if output file already exists and a new one is required.
         """
 
-        # Establish root logger only if client application hasn't done so.
-        # That is, create a root logger with a handler if one doesn't exist.
-        if not logging.getLogger().handlers:
-            global _LOGGER
-            _LOGGER = setup_logger(make_root=True, propagate=False)
+        # # Establish root logger only if client application hasn't done so.
+        # # That is, create a root logger with a handler if one doesn't exist.
+        # if not logging.getLogger().handlers:
+        #     global _LOGGER
+        #     _LOGGER = setup_logger(make_root=True, propagate=False)
 
         # Initial path setup and filetype handling.
         name_reads_file = os.path.basename(path_reads_file)
