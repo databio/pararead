@@ -13,31 +13,37 @@ __email__ = "vince.reuter@gmail.com"
 
 
 def _parse_cmdl(cmdl):
-    """ Define and parse command-line interface. """
+    """Define and parse command-line interface."""
 
     parser = argparse.ArgumentParser(
-        description="Read count as template for ParaReadProcessor "
-                    "implementation",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        description="Read count as template for ParaReadProcessor " "implementation",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    parser.add_argument("readsfile", help="Path to sequencing reads file.")
+
+    parser.add_argument("-O", "--outfile", required=True, help="Path to output file.")
 
     parser.add_argument(
-        "readsfile", help="Path to sequencing reads file.")
+        "-C", "--cores", required=False, default=1, help="Number of cores."
+    )
 
     parser.add_argument(
-        "-O", "--outfile", required=True, help="Path to output file.")
-
-    parser.add_argument(
-        "-C", "--cores", required=False, default=1, help="Number of cores.")
-
-    parser.add_argument('-t', '--limit', dest='limit',
-        help="Limit to these chromosomes", nargs = "+", default=None)
+        "-t",
+        "--limit",
+        dest="limit",
+        help="Limit to these chromosomes",
+        nargs="+",
+        default=None,
+    )
 
     parser = logmuse.add_logging_options(parser)
     return parser.parse_args(cmdl)
 
 
 class ReadCounter(ParaReadProcessor):
-    """ Sequencing reads counter. """
+    """Sequencing reads counter."""
+
     def __call__(self, chromosome, _=None):
         # doesn't work because count can't handle multiple iterators
         # n_reads = self.readsfile.count(chromosome)
@@ -49,23 +55,27 @@ class ReadCounter(ParaReadProcessor):
         for read in reads:
             n_reads += 1
 
-        _LOGGER.debug("Chromosome: '{}'; n_reads {}".format(chromosome,n_reads))
-        with open(self._tempf(chromosome), 'w') as f:
+        _LOGGER.debug("Chromosome: '{}'; n_reads {}".format(chromosome, n_reads))
+        with open(self._tempf(chromosome), "w") as f:
             f.write("{}\t{}".format(chromosome, n_reads))
         return chromosome
 
 
 def main(cmdl):
-    """ Run the script. """
+    """Run the script."""
 
     args = _parse_cmdl(cmdl)
     global _LOGGER
     _LOGGER = logmuse.logger_via_cli(args, make_root=True)
 
     _LOGGER.debug("Creating counter")
-    counter = ReadCounter(args.readsfile, cores=args.cores,
-                          outfile=args.outfile, action="CountReads", 
-                          limit=args.limit)
+    counter = ReadCounter(
+        args.readsfile,
+        cores=args.cores,
+        outfile=args.outfile,
+        action="CountReads",
+        limit=args.limit,
+    )
     _LOGGER.debug("Registering files")
     counter.register_files()
 

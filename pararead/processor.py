@@ -17,9 +17,12 @@ import shutil
 import tempfile
 
 from ubiquerg import is_command_callable
-from .exceptions import \
-    CommandOrderException, IllegalChunkException, \
-    MissingOutputFileException, UnknownChromosomeException
+from .exceptions import (
+    CommandOrderException,
+    IllegalChunkException,
+    MissingOutputFileException,
+    UnknownChromosomeException,
+)
 from .utils import *
 
 
@@ -45,23 +48,32 @@ _LOGGER = logging.getLogger(__name__)
 class ParaReadProcessor(object):
     """
     Base class for parallel processing of sequencing reads.
-    
+
     Implement __call__ to define work for each reads chunk, (e.g., chromosome).
-    Unaligned reads are permitted, but the work then cannot rely on any sort 
-    of biologically meaningful chunking of the reads unless a partition() 
-    function is implemented. If unaligned reads are used and no partition() is 
+    Unaligned reads are permitted, but the work then cannot rely on any sort
+    of biologically meaningful chunking of the reads unless a partition()
+    function is implemented. If unaligned reads are used and no partition() is
     implemented, reads will be arbitrarily split into chunks.
-    
+
     """
 
     __metaclass__ = abc.ABCMeta
 
     def __init__(
-            self, path_reads_file, cores, outfile=None, action=None,
-            temp_folder_parent_path=None, limit=None, allow_unaligned=False,
-            require_new_outfile=False, by_chromosome=True,
-            intermediate_output_type="txt", output_type="txt",
-            retain_temp=False):
+        self,
+        path_reads_file,
+        cores,
+        outfile=None,
+        action=None,
+        temp_folder_parent_path=None,
+        limit=None,
+        allow_unaligned=False,
+        require_new_outfile=False,
+        by_chromosome=True,
+        intermediate_output_type="txt",
+        output_type="txt",
+        retain_temp=False,
+    ):
         """
         :param str path_reads_file: data location (aligned BAM/SAM file).
         :param int | str cores: number of processors to use.
@@ -103,22 +115,25 @@ class ParaReadProcessor(object):
         if outfile:
             self.outfile = outfile
         elif action:
-            self.outfile = make_outfile_name(
-                    readsfile_basename, action, output_type)
+            self.outfile = make_outfile_name(readsfile_basename, action, output_type)
         else:
-            raise ValueError("Either path to output file or "
-                             "name of processing action is required.")
+            raise ValueError(
+                "Either path to output file or "
+                "name of processing action is required."
+            )
 
         # Perform check after establishing the setting so that it works
         # regardless of whether the path was explicit or inferred.
         if os.path.exists(self.outfile):
             if require_new_outfile:
-                raise ValueError("Output file already exists: '{}'".
-                                 format(self.outfile))
+                raise ValueError(
+                    "Output file already exists: '{}'".format(self.outfile)
+                )
             else:
                 _LOGGER.warning(
-                        "Output file already exists and "
-                        "will be overwritten: '{}'".format(self.outfile))
+                    "Output file already exists and "
+                    "will be overwritten: '{}'".format(self.outfile)
+                )
 
         # Create temp folder that's deleted upon exit.
         if not temp_folder_parent_path:
@@ -128,8 +143,7 @@ class ParaReadProcessor(object):
         prefix = "tmp_{}_".format(readsfile_basename)
         if action:
             prefix += "{}_".format(action)
-        tempfolder = tempfile.mkdtemp(
-                prefix=prefix, dir=temp_folder_parent_path)
+        tempfolder = tempfile.mkdtemp(prefix=prefix, dir=temp_folder_parent_path)
         self.temp_folder = tempfolder
 
         # Add a couple lines so that tests can execute quietly.
@@ -139,7 +153,7 @@ class ParaReadProcessor(object):
         def clean():
             if os.path.exists(tempfolder):
                 shutil.rmtree(tempfolder)
-        
+
         if not retain_temp:
             atexit.register(clean)
 
@@ -156,12 +170,12 @@ class ParaReadProcessor(object):
         """
         Perform 'chunk'-wise processing implemented in the subclass.
 
-        A concrete implementation operates on a chunk of sequencing reads. 
-        By default, a 'chunk' simply consists of contiguous reads from the 
-        input file, but a subclass that overrides the partitioning mechanism 
-        can change that. In that case, the provided 'chunk_id' will likely 
-        be meaningful, but otherwise it can be ignored. If processing fails 
-        for the given chunk, the concrete implementation should communicate 
+        A concrete implementation operates on a chunk of sequencing reads.
+        By default, a 'chunk' simply consists of contiguous reads from the
+        input file, but a subclass that overrides the partitioning mechanism
+        can change that. In that case, the provided 'chunk_id' will likely
+        be meaningful, but otherwise it can be ignored. If processing fails
+        for the given chunk, the concrete implementation should communicate
         this by returning None.
 
         :param int | str chunk_id: reads chunk identifier; this is passed in
@@ -178,7 +192,7 @@ class ParaReadProcessor(object):
     def files(self):
         """
         Refer to the pararead files mapping.
-        
+
         :return Mapping[str, object]: pararead files mapping.
         """
         return PARA_READ_FILES
@@ -194,7 +208,6 @@ class ParaReadProcessor(object):
             been performed.
         """
         return self.fetch_file(READS_FILE_KEY)
-
 
     @staticmethod
     def empty_action(read_chunk_key=None):
@@ -221,7 +234,9 @@ class ParaReadProcessor(object):
         except KeyError:
             raise CommandOrderException(
                 "No {} established; has {} been called?".format(
-                    READS_FILE_KEY, ParaReadProcessor.register_files.__name__))
+                    READS_FILE_KEY, ParaReadProcessor.register_files.__name__
+                )
+            )
 
     def check_command(self, cmd):
         """
@@ -237,7 +252,7 @@ class ParaReadProcessor(object):
     def get_chrom_size(self, chrom):
         """
         Determine the size of the given chromosome.
-        
+
         :param str chrom: name of chromosome of interest.
         :return int: size of chromosome of interest.
         :raise pararead.exceptions.CommandOrderException: if there's no
@@ -247,14 +262,14 @@ class ParaReadProcessor(object):
         """
         if not self._size_by_chromosome:
             raise CommandOrderException(
-                    "No size-by-chromosome mapping; "
-                    "has a reads file been registered?")
+                "No size-by-chromosome mapping; " "has a reads file been registered?"
+            )
         try:
             return self._size_by_chromosome[chrom]
         except KeyError:
             raise UnknownChromosomeException(
-                    chrom, known=self._size_by_chromosome.keys())
-
+                chrom, known=self._size_by_chromosome.keys()
+            )
 
     def register_files(self, **file_builder_kwargs):
         """
@@ -277,18 +292,20 @@ class ParaReadProcessor(object):
         kwargs.update(reads_file_maker.kwargs)
 
         if not self.require_aligned:
-            kwargs['check_sq'] = False
+            kwargs["check_sq"] = False
 
         readsfile = builder(self.path_reads_file, **kwargs)
         PARA_READ_FILES[READS_FILE_KEY] = readsfile
 
         # Cache mapping from chromosome name to size for easy access.
         self._size_by_chromosome = parse_bam_header(
-                readsfile, require_aligned=self.require_aligned)
+            readsfile, require_aligned=self.require_aligned
+        )
 
         def ensure_closed():
             if readsfile.is_open:
                 readsfile.close()
+
         atexit.register(ensure_closed)
 
     def run(self, chunksize=None, interleave_chunk_sizes=False):
@@ -315,16 +332,19 @@ class ParaReadProcessor(object):
             readsfile = PARA_READ_FILES[READS_FILE_KEY]
         except KeyError:
             _LOGGER.error(
-                    "No '{}' has been established; call 'register_files' "
-                    "before 'run'".format(READS_FILE_KEY))
+                "No '{}' has been established; call 'register_files' "
+                "before 'run'".format(READS_FILE_KEY)
+            )
             raise
 
         if not self.by_chromosome:
             read_chunk_keys = self.chunk_reads(readsfile, chunksize=chunksize)
         else:
             size_by_chromosome = parse_bam_header(
-                readsfile=readsfile, chroms=self.limit,
-                require_aligned=self.require_aligned)
+                readsfile=readsfile,
+                chroms=self.limit,
+                require_aligned=self.require_aligned,
+            )
             if self.cores == 1:
                 # TODO: handle case (unaligned input) of null return.
                 # TODO: pysam's fetch() may make this OK but not distribute.
@@ -337,21 +357,21 @@ class ParaReadProcessor(object):
                     # input. If requiring aligned input, the call
                     # will have already generated an exception to that effect.
                     _LOGGER.warning(
-                            "Failed attempt to parse chromosomes as read "
-                            "chunk keys; arbitrarily chunking reads instead.")
-                    read_chunk_keys = self.chunk_reads(
-                            readsfile, chunksize=chunksize)
+                        "Failed attempt to parse chromosomes as read "
+                        "chunk keys; arbitrarily chunking reads instead."
+                    )
+                    read_chunk_keys = self.chunk_reads(readsfile, chunksize=chunksize)
                 else:
                     if interleave_chunk_sizes:
                         # Interleave chromosomes by size so that if tasks are
                         # pre-allocated to workers, we'll get about even bins.
                         read_chunk_keys = interleave_chromosomes_by_size(
-                                size_by_chromosome.items())
+                            size_by_chromosome.items()
+                        )
                     else:
                         read_chunk_keys = size_by_chromosome.keys()
 
-        _LOGGER.info("Temporary files will be stored in: '{}'".
-                     format(self.temp_folder))
+        _LOGGER.info("Temporary files will be stored in: '{}'".format(self.temp_folder))
         _LOGGER.info("Processing with {} cores...".format(self.cores))
 
         # Some implementors may have a strand mode attribute.
@@ -384,22 +404,25 @@ class ParaReadProcessor(object):
             # The typical call to map fails to acknowledge KeyboardInterrupts.
             # This fix helps: http://stackoverflow.com/a/1408476/946721
 
-            
             _LOGGER.debug("Cores: '{}'".format(self.cores))
             _LOGGER.debug("Nonempties: '{}'".format(nonempties))
             results = workers.map_async(self, nonempties).get(9999999)
 
         # TODO: note the dependence on order here.
-        result_by_chunk = [(c, self.empty_action(c)) for c in empties] + \
-                           list(zip(nonempties, results))
-        bad_chunks, good_chunks = \
-                partition_chunks_by_null_result(result_by_chunk)
+        result_by_chunk = [(c, self.empty_action(c)) for c in empties] + list(
+            zip(nonempties, results)
+        )
+        bad_chunks, good_chunks = partition_chunks_by_null_result(result_by_chunk)
 
         if bad_chunks:
-            _LOGGER.debug("Discarding {} chunk(s) of reads: {}".
-                         format(len(bad_chunks), bad_chunks))
-            _LOGGER.debug("Keeping {} chunk(s) of reads: {}".
-                         format(len(good_chunks), good_chunks))
+            _LOGGER.debug(
+                "Discarding {} chunk(s) of reads: {}".format(
+                    len(bad_chunks), bad_chunks
+                )
+            )
+            _LOGGER.debug(
+                "Keeping {} chunk(s) of reads: {}".format(len(good_chunks), good_chunks)
+            )
         else:
             _LOGGER.info("Using all reads")
 
@@ -408,21 +431,22 @@ class ParaReadProcessor(object):
     def fetch_chunk(self, chromosome):
         """
         Pull a chunk of sequencing reads from a file.
-        
+
         :param str chromosome: identifier for chunk of reads to select.
         :return Iterable[pysam.AlignedSegment]: collection of aligned reads
         """
         if not self.by_chromosome:
             raise NotImplementedError(
-                    "Provide a fetch_chunk implementation "
-                    "if not partitioning reads by chromosome.")
+                "Provide a fetch_chunk implementation "
+                "if not partitioning reads by chromosome."
+            )
         readsfile = PARA_READ_FILES[READS_FILE_KEY]
         return readsfile.fetch(chromosome, multiple_iterators=True)
 
     def combine(self, good_chromosomes, strict=False, chrom_sep=None):
         """
         Aggregate output from independent read chunks into single output file.
-        
+
         :param Iterable[str] good_chromosomes: identifier (e.g., chromosome)
             for each chunk of reads processed.
         :param bool strict: whether to throw an exception upon encountering a
@@ -448,10 +472,14 @@ class ParaReadProcessor(object):
             missing_chunks = set(good_chromosomes) - set(self.limit)
             if missing_chunks:
                 raise IllegalChunkException(
-                        requested=missing_chunks, of_interest=self.limit)
+                    requested=missing_chunks, of_interest=self.limit
+                )
 
-        _LOGGER.info("Merging {} files into output file: '{}'".
-                     format(len(good_chromosomes), self.outfile))
+        _LOGGER.info(
+            "Merging {} files into output file: '{}'".format(
+                len(good_chromosomes), self.outfile
+            )
+        )
 
         # Track what we actually combine (particularly if non-strict
         # with respect to chunk(s) for which output file is missing.
@@ -461,7 +489,7 @@ class ParaReadProcessor(object):
             _LOGGER.debug("Just one good chromosome; ignoring delimiter.")
             chrom_sep = None
 
-        with open(self.outfile, 'w') as outfile:
+        with open(self.outfile, "w") as outfile:
             for chrom in good_chromosomes:
                 reads_chunk_output = self._tempf(chrom)
 
@@ -469,16 +497,19 @@ class ParaReadProcessor(object):
                 if not os.path.exists(reads_chunk_output):
                     if strict:
                         raise MissingOutputFileException(
-                                reads_chunk_key=chrom,
-                                filepath=reads_chunk_output)
+                            reads_chunk_key=chrom, filepath=reads_chunk_output
+                        )
                     else:
                         _LOGGER.warning(
-                                "Missing output file for reads chunk '%s', "
-                                "skipping: '%s'", chrom, reads_chunk_output)
+                            "Missing output file for reads chunk '%s', "
+                            "skipping: '%s'",
+                            chrom,
+                            reads_chunk_output,
+                        )
                         continue
 
                 # Append lines from this chunk's output.
-                with open(reads_chunk_output, 'r') as tmpf:
+                with open(reads_chunk_output, "r") as tmpf:
                     for line in tmpf:
                         outfile.write(line)
                 if chrom_sep:
@@ -490,20 +521,20 @@ class ParaReadProcessor(object):
     @pending_feature
     def chunk_reads(self, readsfile, chunksize=None):
         """
-        Partition sequencing reads into equally-sized 'chunks' for 
-        parallel processing. This treats all reads equally, in that 
-        they are grouped by contiguous occurrence within the given 
-        input file. This facilitates processing of unaligned reads, 
-        but it means that reads from the same chromosome will not be 
+        Partition sequencing reads into equally-sized 'chunks' for
+        parallel processing. This treats all reads equally, in that
+        they are grouped by contiguous occurrence within the given
+        input file. This facilitates processing of unaligned reads,
+        but it means that reads from the same chromosome will not be
         processed together. This can be overridden if that's desired.
 
         :param Iterable readsfile: collection of reads to chunk, likely
             pysam.AlignmentFile pysam.VariantFile; reads to split into chunks.
         :param int chunksize: number of units (i.e., reads) per processing chunk.
-            If unspecified, this is derived using the instance's 
-            cores count and chunks-per-core parameter, along with 
-            a count of the number of units (reads). Note that if 
-            this is unspecified, there will be some additional time 
+            If unspecified, this is derived using the instance's
+            cores count and chunks-per-core parameter, along with
+            a count of the number of units (reads). Note that if
+            this is unspecified, there will be some additional time
             used to count the reads to derive chunk size.
         :return Iterable[(int, itertools.groupby)]: pairs of chunk key/ID and
             chunk reads chunk itself.
@@ -513,9 +544,12 @@ class ParaReadProcessor(object):
             num_chunks = self.cores * CHUNKS_PER_CORE
 
             # Count the reads.
-            _LOGGER.info("Deriving chunk size for %d chunks: "
-                         "%d cores x %d chunks/core",
-                         num_chunks, self.cores, CHUNKS_PER_CORE)
+            _LOGGER.info(
+                "Deriving chunk size for %d chunks: " "%d cores x %d chunks/core",
+                num_chunks,
+                self.cores,
+                CHUNKS_PER_CORE,
+            )
             _, reads_clone = itertools.tee(readsfile)
             num_reads = sum(1 for _ in reads_clone)
             _LOGGER.info("Reads count: %d", num_reads)
@@ -523,7 +557,8 @@ class ParaReadProcessor(object):
             chunksize = int(num_reads / num_chunks)
 
         return itertools.groupby(
-            enumerate(readsfile), key=lambda ipair: int(ipair[0] / chunksize))
+            enumerate(readsfile), key=lambda ipair: int(ipair[0] / chunksize)
+        )
 
     def _tempf(self, chrom):
         """
@@ -534,5 +569,6 @@ class ParaReadProcessor(object):
 
         """
         return os.path.join(
-                self.temp_folder,
-                "{}.{}".format(chrom or "ALL", self.intermediate_output_type))
+            self.temp_folder,
+            "{}.{}".format(chrom or "ALL", self.intermediate_output_type),
+        )
