@@ -2,6 +2,11 @@
 
 This document follows guidelines from [Keep a Changelog](http://keepachangelog.com/en/0.3.0/) and  adheres to [semantic versioning](http://semver.org/).
 
+## [0.8.0] - 2023-10-03
+### Fixed
+- Updated Python version
+- Cleaned and lint the code
+
 ## [0.7.0] - 2019-08-15
 ### Changed
 - Use command callability checker from `ubiquerg`.
