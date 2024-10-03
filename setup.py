@@ -33,21 +33,12 @@ with open("pararead/_version.py", "r") as versionfile:
     _VERSION = versionfile.readline().split()[-1].strip("\"'\n")
 
 
-# Handle the pypi README formatting.
-try:
-    import pypandoc
-
-    _LONG_DESC = pypandoc.convert_file("README.md", "rst")
-except (IOError, ImportError):
-    _LONG_DESC = open("README.md").read()
-
-
 setup(
     name="pararead",
     packages=["pararead"],
     version=_VERSION,
     description="Parallel processing of sequencing reads",
-    long_description=_LONG_DESC,
+    long_description="",
     classifiers=[
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: BSD License",
