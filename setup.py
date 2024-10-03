@@ -32,11 +32,14 @@ with open("pararead/_version.py", "r") as versionfile:
     # Assume version file like: '__version__ = "0.0.0"\n'
     _VERSION = versionfile.readline().split()[-1].strip("\"'\n")
 
+with open("README.md") as f:
+    long_description = f.read()
 
 setup(
     name="pararead",
     packages=["pararead"],
     version=_VERSION,
+    long_description=long_description,
     description="Parallel processing of sequencing reads",
     classifiers=[
         "Development Status :: 4 - Beta",
