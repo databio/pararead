@@ -38,7 +38,6 @@ setup(
     packages=["pararead"],
     version=_VERSION,
     description="Parallel processing of sequencing reads",
-    long_description="",
     classifiers=[
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: BSD License",
