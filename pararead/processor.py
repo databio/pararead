@@ -458,9 +458,7 @@ class ParaReadProcessor:
             if missing_chunks:
                 raise IllegalChunkException(requested=missing_chunks, of_interest=self.limit)
 
-        _LOGGER.info(
-            f"Merging {len(good_chromosomes)} files into output file: '{self.outfile}'"
-        )
+        _LOGGER.info(f"Merging {len(good_chromosomes)} files into output file: '{self.outfile}'")
 
         # Track what we actually combine (particularly if non-strict
         # with respect to chunk(s) for which output file is missing.

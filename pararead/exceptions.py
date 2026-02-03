@@ -57,7 +57,9 @@ class MissingOutputFileException(Exception):
     """
 
     def __init__(self, reads_chunk_key, filepath):
-        reason = f"Path to output file for reads chunk '{reads_chunk_key}' does not exist: '{filepath}'"
+        reason = (
+            f"Path to output file for reads chunk '{reads_chunk_key}' does not exist: '{filepath}'"
+        )
         super().__init__(reason)
 
 

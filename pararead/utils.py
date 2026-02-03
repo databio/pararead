@@ -202,9 +202,7 @@ def pending_feature(not_yet_implemented):
     """
 
     def raise_error(*args, **kwargs):
-        raise NotImplementedError(
-            f"{not_yet_implemented.__name__} is not fully implemented"
-        )
+        raise NotImplementedError(f"{not_yet_implemented.__name__} is not fully implemented")
 
     return raise_error
 
