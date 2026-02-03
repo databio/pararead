@@ -1,4 +1,4 @@
-""" Specific exception types. """
+"""Specific exception types."""
 
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
@@ -8,7 +8,7 @@ class CommandOrderException(Exception):
     """The parallel reads processor needs certain method call sequence."""
 
     def __init__(self, reason=""):
-        super(CommandOrderException, self).__init__(reason)
+        super().__init__(reason)
 
 
 class FileTypeException(Exception):
@@ -21,18 +21,16 @@ class FileTypeException(Exception):
         :param str got: file type, name, or path of offending file.
         :param str | Iterable[str] known: supported filetype(s).
         """
-        reason = "'{}' is not among supported filetypes: {}".format(got, known)
-        super(FileTypeException, self).__init__(reason)
+        reason = f"'{got}' is not among supported filetypes: {known}"
+        super().__init__(reason)
 
 
 class IllegalChunkException(Exception):
     """Illegal reads chunk ID."""
 
     def __init__(self, requested, of_interest):
-        reason = "Requested {} but processing was restricted to: {}".format(
-            requested, of_interest
-        )
-        super(IllegalChunkException, self).__init__(reason)
+        reason = f"Requested {requested} but processing was restricted to: {of_interest}"
+        super().__init__(reason)
 
 
 class MissingHeaderException(Exception):
@@ -42,10 +40,10 @@ class MissingHeaderException(Exception):
         reason = (
             "No chromosomes in header; this file is "
             "empty or unaligned. Aligned reads are required{}".format(
-                ": '{}'".format(filepath) if filepath else "."
+                f": '{filepath}'" if filepath else "."
             )
         )
-        super(MissingHeaderException, self).__init__(reason)
+        super().__init__(reason)
 
 
 class MissingOutputFileException(Exception):
@@ -60,10 +58,9 @@ class MissingOutputFileException(Exception):
 
     def __init__(self, reads_chunk_key, filepath):
         reason = (
-            "Path to output file for reads chunk '{}' "
-            "does not exist: '{}'".format(reads_chunk_key, filepath)
+            f"Path to output file for reads chunk '{reads_chunk_key}' does not exist: '{filepath}'"
         )
-        super(MissingOutputFileException, self).__init__(reason)
+        super().__init__(reason)
 
 
 class UnknownChromosomeException(Exception):
@@ -72,5 +69,5 @@ class UnknownChromosomeException(Exception):
     def __init__(self, requested, known=None):
         reason = requested
         if known:
-            reason += "; known: {}".format(known)
-        super(UnknownChromosomeException, self).__init__(reason)
+            reason += f"; known: {known}"
+        super().__init__(reason)

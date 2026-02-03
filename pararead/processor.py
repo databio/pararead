@@ -17,14 +17,21 @@ import shutil
 import tempfile
 
 from ubiquerg import is_command_callable
+
 from .exceptions import (
     CommandOrderException,
     IllegalChunkException,
     MissingOutputFileException,
     UnknownChromosomeException,
 )
-from .utils import *
-
+from .utils import (
+    create_reads_builder,
+    interleave_chromosomes_by_size,
+    make_outfile_name,
+    parse_bam_header,
+    partition_chunks_by_null_result,
+    pending_feature,
+)
 
 """
 This module-level variable acts like a global.
@@ -45,7 +52,7 @@ CORES_PARAM_NAME = "cores"
 _LOGGER = logging.getLogger(__name__)
 
 
-class ParaReadProcessor(object):
+class ParaReadProcessor:
     """
     Base class for parallel processing of sequencing reads.
 
@@ -117,22 +124,16 @@ class ParaReadProcessor(object):
         elif action:
             self.outfile = make_outfile_name(readsfile_basename, action, output_type)
         else:
-            raise ValueError(
-                "Either path to output file or "
-                "name of processing action is required."
-            )
+            raise ValueError("Either path to output file or name of processing action is required.")
 
         # Perform check after establishing the setting so that it works
         # regardless of whether the path was explicit or inferred.
         if os.path.exists(self.outfile):
             if require_new_outfile:
-                raise ValueError(
-                    "Output file already exists: '{}'".format(self.outfile)
-                )
+                raise ValueError(f"Output file already exists: '{self.outfile}'")
             else:
                 _LOGGER.warning(
-                    "Output file already exists and "
-                    "will be overwritten: '{}'".format(self.outfile)
+                    f"Output file already exists and will be overwritten: '{self.outfile}'"
                 )
 
         # Create temp folder that's deleted upon exit.
@@ -140,9 +141,9 @@ class ParaReadProcessor(object):
             temp_folder_parent_path = os.path.dirname(self.outfile)
 
         # Handling of temporary folder.
-        prefix = "tmp_{}_".format(readsfile_basename)
+        prefix = f"tmp_{readsfile_basename}_"
         if action:
-            prefix += "{}_".format(action)
+            prefix += f"{action}_"
         tempfolder = tempfile.mkdtemp(prefix=prefix, dir=temp_folder_parent_path)
         self.temp_folder = tempfolder
 
@@ -217,7 +218,7 @@ class ParaReadProcessor(object):
         :param str read_chunk_key: key for the empty chunk of reads.
         """
         if read_chunk_key:
-            _LOGGER.debug("Empty read chunk: {}".format(read_chunk_key))
+            _LOGGER.debug(f"Empty read chunk: {read_chunk_key}")
 
     def fetch_file(self, file_key):
         """
@@ -233,9 +234,7 @@ class ParaReadProcessor(object):
             return self.files[file_key]
         except KeyError:
             raise CommandOrderException(
-                "No {} established; has {} been called?".format(
-                    READS_FILE_KEY, ParaReadProcessor.register_files.__name__
-                )
+                f"No {READS_FILE_KEY} established; has {ParaReadProcessor.register_files.__name__} been called?"
             )
 
     def check_command(self, cmd):
@@ -247,7 +246,7 @@ class ParaReadProcessor(object):
             would fail
         """
         if not is_command_callable(cmd):
-            raise OSError("{} is not callable".format(cmd))
+            raise OSError(f"{cmd} is not callable")
 
     def get_chrom_size(self, chrom):
         """
@@ -262,14 +261,12 @@ class ParaReadProcessor(object):
         """
         if not self._size_by_chromosome:
             raise CommandOrderException(
-                "No size-by-chromosome mapping; " "has a reads file been registered?"
+                "No size-by-chromosome mapping; has a reads file been registered?"
             )
         try:
             return self._size_by_chromosome[chrom]
         except KeyError:
-            raise UnknownChromosomeException(
-                chrom, known=self._size_by_chromosome.keys()
-            )
+            raise UnknownChromosomeException(chrom, known=self._size_by_chromosome.keys())
 
     def register_files(self, **file_builder_kwargs):
         """
@@ -298,9 +295,7 @@ class ParaReadProcessor(object):
         PARA_READ_FILES[READS_FILE_KEY] = readsfile
 
         # Cache mapping from chromosome name to size for easy access.
-        self._size_by_chromosome = parse_bam_header(
-            readsfile, require_aligned=self.require_aligned
-        )
+        self._size_by_chromosome = parse_bam_header(readsfile, require_aligned=self.require_aligned)
 
         def ensure_closed():
             if readsfile.is_open:
@@ -332,8 +327,7 @@ class ParaReadProcessor(object):
             readsfile = PARA_READ_FILES[READS_FILE_KEY]
         except KeyError:
             _LOGGER.error(
-                "No '{}' has been established; call 'register_files' "
-                "before 'run'".format(READS_FILE_KEY)
+                f"No '{READS_FILE_KEY}' has been established; call 'register_files' before 'run'"
             )
             raise
 
@@ -365,20 +359,18 @@ class ParaReadProcessor(object):
                     if interleave_chunk_sizes:
                         # Interleave chromosomes by size so that if tasks are
                         # pre-allocated to workers, we'll get about even bins.
-                        read_chunk_keys = interleave_chromosomes_by_size(
-                            size_by_chromosome.items()
-                        )
+                        read_chunk_keys = interleave_chromosomes_by_size(size_by_chromosome.items())
                     else:
                         read_chunk_keys = size_by_chromosome.keys()
 
-        _LOGGER.info("Temporary files will be stored in: '{}'".format(self.temp_folder))
-        _LOGGER.info("Processing with {} cores...".format(self.cores))
+        _LOGGER.info(f"Temporary files will be stored in: '{self.temp_folder}'")
+        _LOGGER.info(f"Processing with {self.cores} cores...")
 
         # Some implementors may have a strand mode attribute.
         # If so, log it here to avoid duplicate messaging, as it
         # will remain constant across processed chunks (chromosomes).
         try:
-            _LOGGER.info("STRAND MODE: {}".format(self.use_strand))
+            _LOGGER.info(f"STRAND MODE: {self.use_strand}")
         except AttributeError:
             pass
 
@@ -404,8 +396,8 @@ class ParaReadProcessor(object):
             # The typical call to map fails to acknowledge KeyboardInterrupts.
             # This fix helps: http://stackoverflow.com/a/1408476/946721
 
-            _LOGGER.debug("Cores: '{}'".format(self.cores))
-            _LOGGER.debug("Nonempties: '{}'".format(nonempties))
+            _LOGGER.debug(f"Cores: '{self.cores}'")
+            _LOGGER.debug(f"Nonempties: '{nonempties}'")
             results = workers.map_async(self, nonempties).get(9999999)
 
         # TODO: note the dependence on order here.
@@ -415,14 +407,8 @@ class ParaReadProcessor(object):
         bad_chunks, good_chunks = partition_chunks_by_null_result(result_by_chunk)
 
         if bad_chunks:
-            _LOGGER.debug(
-                "Discarding {} chunk(s) of reads: {}".format(
-                    len(bad_chunks), bad_chunks
-                )
-            )
-            _LOGGER.debug(
-                "Keeping {} chunk(s) of reads: {}".format(len(good_chunks), good_chunks)
-            )
+            _LOGGER.debug(f"Discarding {len(bad_chunks)} chunk(s) of reads: {bad_chunks}")
+            _LOGGER.debug(f"Keeping {len(good_chunks)} chunk(s) of reads: {good_chunks}")
         else:
             _LOGGER.info("Using all reads")
 
@@ -437,8 +423,7 @@ class ParaReadProcessor(object):
         """
         if not self.by_chromosome:
             raise NotImplementedError(
-                "Provide a fetch_chunk implementation "
-                "if not partitioning reads by chromosome."
+                "Provide a fetch_chunk implementation if not partitioning reads by chromosome."
             )
         readsfile = PARA_READ_FILES[READS_FILE_KEY]
         return readsfile.fetch(chromosome, multiple_iterators=True)
@@ -471,15 +456,9 @@ class ParaReadProcessor(object):
         if self.limit:
             missing_chunks = set(good_chromosomes) - set(self.limit)
             if missing_chunks:
-                raise IllegalChunkException(
-                    requested=missing_chunks, of_interest=self.limit
-                )
+                raise IllegalChunkException(requested=missing_chunks, of_interest=self.limit)
 
-        _LOGGER.info(
-            "Merging {} files into output file: '{}'".format(
-                len(good_chromosomes), self.outfile
-            )
-        )
+        _LOGGER.info(f"Merging {len(good_chromosomes)} files into output file: '{self.outfile}'")
 
         # Track what we actually combine (particularly if non-strict
         # with respect to chunk(s) for which output file is missing.
@@ -501,15 +480,14 @@ class ParaReadProcessor(object):
                         )
                     else:
                         _LOGGER.warning(
-                            "Missing output file for reads chunk '%s', "
-                            "skipping: '%s'",
+                            "Missing output file for reads chunk '%s', skipping: '%s'",
                             chrom,
                             reads_chunk_output,
                         )
                         continue
 
                 # Append lines from this chunk's output.
-                with open(reads_chunk_output, "r") as tmpf:
+                with open(reads_chunk_output) as tmpf:
                     for line in tmpf:
                         outfile.write(line)
                 if chrom_sep:
@@ -545,7 +523,7 @@ class ParaReadProcessor(object):
 
             # Count the reads.
             _LOGGER.info(
-                "Deriving chunk size for %d chunks: " "%d cores x %d chunks/core",
+                "Deriving chunk size for %d chunks: %d cores x %d chunks/core",
                 num_chunks,
                 self.cores,
                 CHUNKS_PER_CORE,
@@ -556,9 +534,7 @@ class ParaReadProcessor(object):
 
             chunksize = int(num_reads / num_chunks)
 
-        return itertools.groupby(
-            enumerate(readsfile), key=lambda ipair: int(ipair[0] / chunksize)
-        )
+        return itertools.groupby(enumerate(readsfile), key=lambda ipair: int(ipair[0] / chunksize))
 
     def _tempf(self, chrom):
         """

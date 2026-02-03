@@ -1,22 +1,23 @@
 #!/usr/bin/env python
-""" Counting reads, as an example/template for implementing a processor. """
+"""Counting reads, as an example/template for implementing a processor."""
 
 import argparse
+import logging
 import sys
 
 from pararead import ParaReadProcessor
-import logmuse
-
 
 __author__ = "Vince Reuter"
 __email__ = "vince.reuter@gmail.com"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _parse_cmdl(cmdl):
     """Define and parse command-line interface."""
 
     parser = argparse.ArgumentParser(
-        description="Read count as template for ParaReadProcessor " "implementation",
+        description="Read count as template for ParaReadProcessor implementation",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -24,9 +25,7 @@ def _parse_cmdl(cmdl):
 
     parser.add_argument("-O", "--outfile", required=True, help="Path to output file.")
 
-    parser.add_argument(
-        "-C", "--cores", required=False, default=1, help="Number of cores."
-    )
+    parser.add_argument("-C", "--cores", required=False, default=1, help="Number of cores.")
 
     parser.add_argument(
         "-t",
@@ -37,7 +36,8 @@ def _parse_cmdl(cmdl):
         default=None,
     )
 
-    parser = logmuse.add_logging_options(parser)
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
+
     return parser.parse_args(cmdl)
 
 
@@ -55,9 +55,9 @@ class ReadCounter(ParaReadProcessor):
         for read in reads:
             n_reads += 1
 
-        _LOGGER.debug("Chromosome: '{}'; n_reads {}".format(chromosome, n_reads))
+        _LOGGER.debug(f"Chromosome: '{chromosome}'; n_reads {n_reads}")
         with open(self._tempf(chromosome), "w") as f:
-            f.write("{}\t{}".format(chromosome, n_reads))
+            f.write(f"{chromosome}\t{n_reads}")
         return chromosome
 
 
@@ -65,8 +65,11 @@ def main(cmdl):
     """Run the script."""
 
     args = _parse_cmdl(cmdl)
-    global _LOGGER
-    _LOGGER = logmuse.logger_via_cli(args, make_root=True)
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s: %(message)s",
+    )
 
     _LOGGER.debug("Creating counter")
     counter = ReadCounter(
@@ -79,9 +82,9 @@ def main(cmdl):
     _LOGGER.debug("Registering files")
     counter.register_files()
 
-    _LOGGER.info("Counting reads: {}".format(args.readsfile))
+    _LOGGER.info(f"Counting reads: {args.readsfile}")
     good_chromosomes = counter.run()
-    _LOGGER.info("Collecting read counts: {}".format(args.outfile))
+    _LOGGER.info(f"Collecting read counts: {args.outfile}")
     counter.combine(good_chromosomes, chrom_sep="\n")
 
 

@@ -1,4 +1,4 @@
-""" Package-level constants and setup. """
+"""Package-level constants and setup."""
 
-from .processor import ParaReadProcessor
-from ._version import __version__
+from ._version import __version__ as __version__
+from .processor import ParaReadProcessor as ParaReadProcessor

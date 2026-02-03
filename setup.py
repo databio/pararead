@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-""" Install and setup the pararead package. """
+"""Install and setup the pararead package."""
+
+import sys
 
 from setuptools import setup
-import sys
 
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
 
 
 # Ordinary package dependencies
-with open("requirements/requirements.txt", "r") as dependencies:
+with open("requirements/requirements.txt") as dependencies:
     _DEPENDENCIES = []
     for line in dependencies:
         if line.startswith("#") or not line.strip():
@@ -19,7 +20,7 @@ with open("requirements/requirements.txt", "r") as dependencies:
 
 
 # Test dependencies
-with open("requirements/requirements-test.txt", "r") as test_deps_file:
+with open("requirements/requirements-test.txt") as test_deps_file:
     test_deps = []
     for packname in test_deps_file.readlines():
         dependency = packname.strip()
@@ -28,7 +29,7 @@ with open("requirements/requirements-test.txt", "r") as test_deps_file:
 
 
 # Version info
-with open("pararead/_version.py", "r") as versionfile:
+with open("pararead/_version.py") as versionfile:
     # Assume version file like: '__version__ = "0.0.0"\n'
     _VERSION = versionfile.readline().split()[-1].strip("\"'\n")
 
@@ -57,7 +58,5 @@ setup(
     install_requires=_DEPENDENCIES,
     test_suite="tests",
     tests_require=test_deps,
-    setup_requires=(
-        ["pytest-runner"] if {"ptr", "test", "pytest"} & set(sys.argv) else []
-    ),
+    setup_requires=(["pytest-runner"] if {"ptr", "test", "pytest"} & set(sys.argv) else []),
 )
