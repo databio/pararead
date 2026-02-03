@@ -2,14 +2,15 @@
 """Counting reads, as an example/template for implementing a processor."""
 
 import argparse
+import logging
 import sys
-
-import logmuse
 
 from pararead import ParaReadProcessor
 
 __author__ = "Vince Reuter"
 __email__ = "vince.reuter@gmail.com"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _parse_cmdl(cmdl):
@@ -35,7 +36,8 @@ def _parse_cmdl(cmdl):
         default=None,
     )
 
-    parser = logmuse.add_logging_options(parser)
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
+
     return parser.parse_args(cmdl)
 
 
@@ -63,8 +65,11 @@ def main(cmdl):
     """Run the script."""
 
     args = _parse_cmdl(cmdl)
-    global _LOGGER
-    _LOGGER = logmuse.logger_via_cli(args, make_root=True)
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s: %(message)s",
+    )
 
     _LOGGER.debug("Creating counter")
     counter = ReadCounter(
