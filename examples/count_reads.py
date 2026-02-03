@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-""" Counting reads, as an example/template for implementing a processor. """
+"""Counting reads, as an example/template for implementing a processor."""
 
 import argparse
 import sys
 
-from pararead import ParaReadProcessor
 import logmuse
 
+from pararead import ParaReadProcessor
 
 __author__ = "Vince Reuter"
 __email__ = "vince.reuter@gmail.com"
@@ -16,7 +16,7 @@ def _parse_cmdl(cmdl):
     """Define and parse command-line interface."""
 
     parser = argparse.ArgumentParser(
-        description="Read count as template for ParaReadProcessor " "implementation",
+        description="Read count as template for ParaReadProcessor implementation",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -24,9 +24,7 @@ def _parse_cmdl(cmdl):
 
     parser.add_argument("-O", "--outfile", required=True, help="Path to output file.")
 
-    parser.add_argument(
-        "-C", "--cores", required=False, default=1, help="Number of cores."
-    )
+    parser.add_argument("-C", "--cores", required=False, default=1, help="Number of cores.")
 
     parser.add_argument(
         "-t",
@@ -55,9 +53,9 @@ class ReadCounter(ParaReadProcessor):
         for read in reads:
             n_reads += 1
 
-        _LOGGER.debug("Chromosome: '{}'; n_reads {}".format(chromosome, n_reads))
+        _LOGGER.debug(f"Chromosome: '{chromosome}'; n_reads {n_reads}")
         with open(self._tempf(chromosome), "w") as f:
-            f.write("{}\t{}".format(chromosome, n_reads))
+            f.write(f"{chromosome}\t{n_reads}")
         return chromosome
 
 
@@ -79,9 +77,9 @@ def main(cmdl):
     _LOGGER.debug("Registering files")
     counter.register_files()
 
-    _LOGGER.info("Counting reads: {}".format(args.readsfile))
+    _LOGGER.info(f"Counting reads: {args.readsfile}")
     good_chromosomes = counter.run()
-    _LOGGER.info("Collecting read counts: {}".format(args.outfile))
+    _LOGGER.info(f"Collecting read counts: {args.outfile}")
     counter.combine(good_chromosomes, chrom_sep="\n")
 
 

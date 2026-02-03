@@ -1,4 +1,4 @@
-""" Basic tests for ParaRead """
+"""Basic tests for ParaRead"""
 
 import itertools
 import os
@@ -12,15 +12,12 @@ from pararead.exceptions import (
     MissingHeaderException,
     MissingOutputFileException,
 )
-from pararead.processor import ParaReadProcessor
 from tests import (
-    NUM_CORES_DEFAULT,
     NUM_READS_BY_FILE,
     PATH_ALIGNED_FILE,
     PATH_UNALIGNED_FILE,
 )
-from tests.helpers import IdentityProcessor, loglines
-
+from tests.helpers import IdentityProcessor
 
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
@@ -42,9 +39,7 @@ class FileRegistrationTests:
     """Tests for registration of files with the ParaReadProcessor."""
 
     @pytest.mark.parametrize(argnames="require_aligned", argvalues=[False, True])
-    @pytest.mark.parametrize(
-        argnames="pysam_kwargs", argvalues=[{}, {"check_sq": False}]
-    )
+    @pytest.mark.parametrize(argnames="pysam_kwargs", argvalues=[{}, {"check_sq": False}])
     def test_adds_pysam_kwargs(self, require_aligned, pysam_kwargs, remove_reads_file):
         """Unaligned input BAM needs check_sq=False to be created."""
 
@@ -75,9 +70,7 @@ class FileRegistrationTests:
             (PATH_UNALIGNED_FILE, False),
         ],
     )
-    def test_creates_fresh_reads_file(
-        self, path_reads_file, require_aligned, remove_reads_file
-    ):
+    def test_creates_fresh_reads_file(self, path_reads_file, require_aligned, remove_reads_file):
         """Reads file pysam object is created by register_files()."""
 
         # Note that remove_reads_file is here to clear the module-scoped map.
@@ -112,7 +105,7 @@ class CombinerTests:
 
     CHROMOSOME_CHUNK_KEY = "chromosome"
     ARBITRARY_CHUNK_KEY = "arbitrary"
-    CHROM_NAMES = ["chr{}".format(i) for i in range(1, 23)] + ["chrX", "chrY", "chrM"]
+    CHROM_NAMES = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY", "chrM"]
     ARBITRARY_NAMES = ["random0", "arbitrary1", "contig2"]
     COMBO_REQUEST_NAMES = CHROM_NAMES + ARBITRARY_NAMES
     CHUNK_NAMES = {
@@ -120,32 +113,10 @@ class CombinerTests:
         ARBITRARY_CHUNK_KEY: ARBITRARY_NAMES,
     }
 
-    @pytest.mark.parametrize(argnames="error_if_missing", argvalues=[False, True])
-    @pytest.mark.skip
-    def test_nothing_to_combine(
-        self, tmpdir, path_logs_file, num_cores, error_if_missing
-    ):
-        """Complete lack of output is sufficient to warrant a warning."""
-
-        # Create the processor and do combine() step.
-        path_output_file = tmpdir.join("output.txt").strpath
-        processor = IdentityProcessor(
-            PATH_ALIGNED_FILE, cores=num_cores, outfile=path_output_file
-        )
-        num_logs_before_combine = len(loglines(path_logs_file))
-        processor.combine(good_chromosomes=[], strict=error_if_missing)
-        log_records = loglines(path_logs_file)
-
-        # The log record should be a warning, and there's only one.
-        assert 1 == len(log_records) - num_logs_before_combine
-        assert "WARN" in log_records[num_logs_before_combine]
-
     @pytest.mark.parametrize(
         argnames="which_names", argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY]
     )
-    def test_missing_output_files(
-        self, which_names, extant_files, fixed_tempfolder_processor
-    ):
+    def test_missing_output_files(self, which_names, extant_files, fixed_tempfolder_processor):
         """Missing-output chunks be skipped or exceptional."""
         with pytest.raises(MissingOutputFileException):
             fixed_tempfolder_processor.combine(self.COMBO_REQUEST_NAMES, strict=True)
@@ -161,30 +132,6 @@ class CombinerTests:
             self.COMBO_REQUEST_NAMES, strict=False
         )
         assert extant_files == observed_combined_filepaths
-
-    @pytest.mark.parametrize(
-        argnames="which_names", argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY]
-    )
-    @pytest.mark.skip
-    def test_missing_output_files_non_strict_messaging(
-        self, which_names, extant_files, fixed_tempfolder_processor, path_logs_file
-    ):
-        """If non-strict, combiner warns about requested-but-missing."""
-
-        # Do the combine step and get the logged messages.
-        num_logs_before_combine = len(loglines(path_logs_file))
-        fixed_tempfolder_processor.combine(self.COMBO_REQUEST_NAMES, strict=False)
-        logs_from_combine = loglines(path_logs_file)[num_logs_before_combine:]
-
-        # As a control, check that we are in fact over-requesting in combine().
-        num_extant_files = len(extant_files)
-        num_requested_files = len(self.COMBO_REQUEST_NAMES)
-        assert num_extant_files < num_requested_files
-
-        # The control makes this assertion meaningful.
-        num_skips_expected = num_requested_files - num_extant_files
-        num_warns_observed = sum(1 for msg in logs_from_combine if "WARN" in msg)
-        assert num_skips_expected == num_warns_observed
 
     @pytest.mark.parametrize(
         argnames=["filetype", "combined_output_type"],
@@ -205,9 +152,7 @@ class CombinerTests:
         """File content is actually combined, and formats can differ."""
 
         # Manual creation of the processor here to control output type.
-        path_output_file = tmpdir.join(
-            "testfile.{}".format(combined_output_type)
-        ).strpath
+        path_output_file = tmpdir.join(f"testfile.{combined_output_type}").strpath
         processor = IdentityProcessor(
             PATH_ALIGNED_FILE,
             cores=num_cores,
@@ -217,9 +162,7 @@ class CombinerTests:
         processor.temp_folder = tmpdir.strpath
 
         # Write to the dummy output file for each chunk.
-        expected_lines = {
-            fp: "file{}: {}\n".format(i, fp) for i, fp in enumerate(extant_files)
-        }
+        expected_lines = {fp: f"file{i}: {fp}\n" for i, fp in enumerate(extant_files)}
         for fp, line in expected_lines.items():
             with open(fp, "w") as f:
                 f.write(line)
@@ -230,16 +173,14 @@ class CombinerTests:
         assert os.path.isfile(path_output_file)
 
         # Check that output was combined accurately.
-        with open(path_output_file, "r") as combined:
+        with open(path_output_file) as combined:
             observed_lines = combined.readlines()
         assert set(expected_lines.values()) == set(observed_lines)
 
     @pytest.mark.parametrize(
         argnames="which_names", argvalues=[CHROMOSOME_CHUNK_KEY, ARBITRARY_CHUNK_KEY]
     )
-    def test_enforces_chunks_limit(
-        self, which_names, extant_files, fixed_tempfolder_processor
-    ):
+    def test_enforces_chunks_limit(self, which_names, extant_files, fixed_tempfolder_processor):
         """Combination applies only to chunks of interest."""
 
         # Tell the processor that only certain chunks are of interest.
@@ -290,7 +231,7 @@ class CombinerTests:
         # communicate back to the requesting test case.
         files = []
         for chunk in chunk_names:
-            path_out_file = tmpdir.join("{}.{}".format(chunk, extension))
+            path_out_file = tmpdir.join(f"{chunk}.{extension}")
             path_out_file.ensure(file=True)
             files.append(path_out_file.strpath)
         return files
@@ -324,9 +265,7 @@ class CombinerTests:
 
         """
         path_output_file = tmpdir.join("test-output.txt").strpath
-        processor = IdentityProcessor(
-            PATH_ALIGNED_FILE, cores=num_cores, outfile=path_output_file
-        )
+        processor = IdentityProcessor(PATH_ALIGNED_FILE, cores=num_cores, outfile=path_output_file)
         processor.temp_folder = tmpdir.strpath
         return processor
 

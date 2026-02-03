@@ -2,7 +2,18 @@
 
 This document follows guidelines from [Keep a Changelog](http://keepachangelog.com/en/0.3.0/) and  adheres to [semantic versioning](http://semver.org/).
 
-## [0.8.0] - 2023-10-03
+## [0.8.1] - 2026-02-02
+### Fixed
+- Fixed Python 3 bug in `interleave_chromosomes_by_size` where `zip()` returns an iterator
+- Fixed wildcard imports in processor module
+- Removed dead Python <3.3 compatibility code
+
+### Changed
+- Removed logmuse dependency and related dead code
+- Added ruff for linting and formatting
+- Added tests for `interleave_chromosomes_by_size`
+
+## [0.8.0] - 2024-10-03
 ### Fixed
 - Updated Python version
 - Cleaned and lint the code

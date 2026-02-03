@@ -1,18 +1,15 @@
-""" Parallel reads processor utilities. """
+"""Parallel reads processor utilities."""
 
-from collections import namedtuple
 import itertools
 import operator as op
 import os
 import sys
+from collections import namedtuple
+from collections.abc import Mapping, Sequence
 
-if sys.version_info < (3, 3):
-    from collections import Mapping, Sequence
-else:
-    from collections.abc import Mapping, Sequence
 from pysam import AlignmentFile, VariantFile
-from .exceptions import FileTypeException, MissingHeaderException
 
+from .exceptions import FileTypeException, MissingHeaderException
 
 __author__ = "Vince Reuter"
 __email__ = "vreuter@virginia.edu"
@@ -84,7 +81,7 @@ def interleave_chromosomes_by_size(size_by_chromosome):
     if isinstance(size_by_chromosome, Mapping):
         size_by_chromosome = size_by_chromosome.items()
 
-    ordered_chromosomes = zip(*sorted(size_by_chromosome, key=op.itemgetter(1)))[0]
+    ordered_chromosomes = list(zip(*sorted(size_by_chromosome, key=op.itemgetter(1))))[0]
     num_chromosomes = len(ordered_chromosomes)
     meridian = int(num_chromosomes / 2)
     first_half, second_half = (
@@ -124,7 +121,7 @@ def make_outfile_name(readsfile_basename, processing_action, output_type):
     :return str: (Fallback) name for output file, used by the ParaReadProcessor
         constructor if a null or empty output filename is provided at creation.
     """
-    return "{}_{}.{}".format(readsfile_basename, processing_action, output_type)
+    return f"{readsfile_basename}_{processing_action}.{output_type}"
 
 
 def parse_bam_header(readsfile, chroms=None, require_aligned=False):
@@ -146,9 +143,7 @@ def parse_bam_header(readsfile, chroms=None, require_aligned=False):
     """
 
     try:
-        all_sizes_by_chrom = {
-            headline["SN"]: headline["LN"] for headline in readsfile.header["SQ"]
-        }
+        all_sizes_by_chrom = {headline["SN"]: headline["LN"] for headline in readsfile.header["SQ"]}
     except KeyError:
         all_sizes_by_chrom = {}
 
@@ -208,7 +203,7 @@ def pending_feature(not_yet_implemented):
 
     def raise_error(*args, **kwargs):
         raise NotImplementedError(
-            "{} is not fully implemented".format(not_yet_implemented.__name__)
+            f"{not_yet_implemented.__name__} is not fully implemented"
         )
 
     return raise_error
